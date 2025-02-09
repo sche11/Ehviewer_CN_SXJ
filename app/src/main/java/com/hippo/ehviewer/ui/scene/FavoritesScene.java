@@ -25,6 +25,7 @@ import android.graphics.Color;
 import android.graphics.Point;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.InputType;
 import android.text.Spannable;
@@ -68,6 +69,7 @@ import com.hippo.ehviewer.EhDB;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.EhClient;
+import com.hippo.ehviewer.client.EhEngine;
 import com.hippo.ehviewer.client.EhRequest;
 import com.hippo.ehviewer.client.EhUrl;
 import com.hippo.ehviewer.client.data.FavListUrlBuilder;
@@ -78,9 +80,9 @@ import com.hippo.ehviewer.ui.MainActivity;
 import com.hippo.ehviewer.ui.annotation.DrawerLifeCircle;
 import com.hippo.ehviewer.ui.annotation.ViewLifeCircle;
 import com.hippo.ehviewer.ui.annotation.WholeLifeCircle;
+import com.hippo.ehviewer.ui.dialog.FavoriteListSortDialog;
 import com.hippo.ehviewer.ui.scene.gallery.detail.GalleryDetailScene;
 import com.hippo.ehviewer.ui.scene.gallery.list.EnterGalleryDetailTransaction;
-import com.hippo.ehviewer.util.ClipboardUtil;
 import com.hippo.ehviewer.widget.EhDrawerLayout;
 import com.hippo.ehviewer.widget.GalleryInfoContentHelper;
 import com.hippo.ehviewer.widget.JumpDateSelector;
@@ -94,15 +96,17 @@ import com.hippo.util.DrawableManager;
 import com.hippo.widget.ContentLayout;
 import com.hippo.widget.FabLayout;
 import com.hippo.widget.SearchBarMover;
-import com.hippo.yorozuya.AssertUtils;
-import com.hippo.yorozuya.ObjectUtils;
-import com.hippo.yorozuya.SimpleHandler;
-import com.hippo.yorozuya.ViewUtils;
+import com.hippo.lib.yorozuya.AssertUtils;
+import com.hippo.lib.yorozuya.ObjectUtils;
+import com.hippo.lib.yorozuya.SimpleHandler;
+import com.hippo.lib.yorozuya.ViewUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+
+import okhttp3.OkHttpClient;
 
 // TODO Get favorite, modify favorite, add favorite, what a mess!
 public class FavoritesScene extends BaseScene implements
@@ -192,6 +196,8 @@ public class FavoritesScene extends BaseScene implements
     private FavoritesParser.Result mResult;
 
     private ExecutorService executorService;
+    @ViewLifeCircle
+    private FavoriteListSortDialog sortDialog;
 
     @Override
     public int getNavCheckedItem() {
@@ -891,31 +897,30 @@ public class FavoritesScene extends BaseScene implements
                 case 1: // Refresh
                     mHelper.refresh();
                     break;
-                case 5: // add share
-                    mModifyGiList.clear();
-
-                    AddDialogHelper add = new AddDialogHelper();
-                    GalleryInfo galleryInfo = ClipboardUtil.getGalleryInfoFromClip();
-
-                    if (galleryInfo != null) {
-                        if (!EhDB.containLocalFavorites(galleryInfo.gid)) {
-                            mModifyGiList.add(galleryInfo);
-                            new AlertDialog.Builder(context)
-                                    .setTitle(R.string.share_favorites_dialog_title)
-                                    .setMessage(getString(R.string.add_favorites_dialog_message, mModifyGiList.get(0).title))
-                                    .setPositiveButton(android.R.string.ok, add)
-                                    .setOnCancelListener(add)
-                                    .show();
-
-                            mHelper.refresh();
-                        } else {
-                            new AlertDialog.Builder(context)
-                                    .setTitle(R.string.share_favorites_dialog_title)
-                                    .setMessage("已有名为：[" + galleryInfo.title + "]的本子，无需重复添加~")
-                                    .setPositiveButton(android.R.string.ok, add)
-                                    .show();
-                        }
+                case 5: // random
+                    if (mHelper == null || !mHelper.canGoTo()) {
+                        break;
                     }
+                    RandomFavorite mRandomFavorite = new RandomFavorite(context);
+                    mRandomFavorite.execute();
+                    break;
+                case 6:
+                    RandomFavorite randomFavorite = new RandomFavorite();
+                    randomFavorite.random();
+                    break;
+                case 7: // sort
+                    if (mUrlBuilder==null){
+                        break;
+                    }
+                    if (sortDialog == null) {
+                        sortDialog = new FavoriteListSortDialog(this);
+                    }
+                    if (mUrlBuilder.getFavCat() == FavListUrlBuilder.FAV_CAT_LOCAL){
+                        sortDialog.showLocalSort(mResult);
+                    }else {
+                        sortDialog.showCloudSort(mResult);
+                    }
+
                     break;
             }
             view.setExpanded(false);
@@ -968,16 +973,6 @@ public class FavoritesScene extends BaseScene implements
                         .show();
                 break;
             }
-            case 6: { // share
-                ShareDialogHelper share = new ShareDialogHelper();
-                new AlertDialog.Builder(context)
-                        .setTitle(R.string.share_favorites_dialog_title)
-                        .setMessage(getString(R.string.share_favorites_dialog_message, mModifyGiList.get(0).title))
-                        .setPositiveButton(android.R.string.ok, share)
-                        .setOnCancelListener(share)
-                        .show();
-                break;
-            }
         }
     }
 
@@ -991,7 +986,8 @@ public class FavoritesScene extends BaseScene implements
                 mFabLayout.setSecondaryFabVisibilityAt(3, false);
                 mFabLayout.setSecondaryFabVisibilityAt(4, false);
                 mFabLayout.setSecondaryFabVisibilityAt(5, true);
-                mFabLayout.setSecondaryFabVisibilityAt(6, false);
+                mFabLayout.setSecondaryFabVisibilityAt(6, true);
+                mFabLayout.setSecondaryFabVisibilityAt(7, false);
             }
         }
     };
@@ -1012,7 +1008,8 @@ public class FavoritesScene extends BaseScene implements
             mFabLayout.setSecondaryFabVisibilityAt(3, true);
             mFabLayout.setSecondaryFabVisibilityAt(4, true);
             mFabLayout.setSecondaryFabVisibilityAt(5, false);
-            mFabLayout.setSecondaryFabVisibilityAt(6, true);
+            mFabLayout.setSecondaryFabVisibilityAt(6, false);
+            mFabLayout.setSecondaryFabVisibilityAt(7, true);
         }
     }
 
@@ -1138,58 +1135,11 @@ public class FavoritesScene extends BaseScene implements
         }
     }
 
-    private class AddDialogHelper implements DialogInterface.OnClickListener,
-            DialogInterface.OnCancelListener {
-
-        @Override
-        public void onClick(DialogInterface dialog, int which) {
-            if (which != DialogInterface.BUTTON_POSITIVE) {
-                return;
-            }
-            if (mRecyclerView == null || mHelper == null || mUrlBuilder == null || mModifyGiList == null) {
-                return;
-            }
-
-            mRecyclerView.outOfCustomChoiceMode();
-
-
-            EhDB.putLocalFavorites(mModifyGiList);
-
-
+    public void updateSort(String sort){
+        if (null==mHelper){
+            return;
         }
-
-        @Override
-        public void onCancel(DialogInterface dialog) {
-            mModifyGiList.clear();
-        }
-    }
-
-    private class ShareDialogHelper implements DialogInterface.OnClickListener,
-            DialogInterface.OnCancelListener {
-
-        @Override
-        public void onClick(DialogInterface dialog, int which) {
-            if (which != DialogInterface.BUTTON_POSITIVE) {
-                return;
-            }
-            if (mRecyclerView == null || mHelper == null || mUrlBuilder == null) {
-                return;
-            }
-
-            mRecyclerView.outOfCustomChoiceMode();
-            long[] gidArray = new long[mModifyGiList.size()];
-            for (int i = 0, n = mModifyGiList.size(); i < n; i++) {
-                gidArray[i] = mModifyGiList.get(i).gid;
-            }
-            GalleryInfo galleryInfo = EhDB.searchLocalFavorites(gidArray[0]);
-            ClipboardUtil.copy(galleryInfo);
-
-        }
-
-        @Override
-        public void onCancel(DialogInterface dialog) {
-            mModifyGiList.clear();
-        }
+        mHelper.refreshSort(sort);
     }
 
     private class DeleteDialogHelper implements DialogInterface.OnClickListener,
@@ -1283,7 +1233,7 @@ public class FavoritesScene extends BaseScene implements
 
         public FavoritesAdapter(@NonNull LayoutInflater inflater, @NonNull Resources resources,
                                 @NonNull RecyclerView recyclerView, int type) {
-            super(inflater, resources, recyclerView, type, false,executorService);
+            super(inflater, resources, recyclerView, type, false, executorService);
         }
 
         @Override
@@ -1356,12 +1306,7 @@ public class FavoritesScene extends BaseScene implements
                 }
             } else if (mUrlBuilder.getFavCat() == FavListUrlBuilder.FAV_CAT_LOCAL) {
                 final String keyword = mUrlBuilder.getKeyword();
-                SimpleHandler.getInstance().post(new Runnable() {
-                    @Override
-                    public void run() {
-                        onGetFavoritesLocal(keyword, taskId);
-                    }
-                });
+                SimpleHandler.getInstance().post(() -> onGetFavoritesLocal(keyword, taskId));
             } else {
                 mUrlBuilder.setIndex(page);
                 String url = mUrlBuilder.build();
@@ -1373,6 +1318,28 @@ public class FavoritesScene extends BaseScene implements
                 request.setArgs(url, Settings.getShowJpnTitle());
                 mClient.execute(request);
             }
+        }
+
+        @Override
+        protected void getPageData(int taskId, int type, int page, String append) {
+            MainActivity activity = getActivity2();
+            if (null == activity || null == mUrlBuilder || null == mClient) {
+                return;
+            }
+            mUrlBuilder.setIndex(page);
+            String url = mUrlBuilder.build();
+            if (url.contains("?")){
+                url = url+"&"+append;
+            }else {
+                url = url+"?"+append;
+            }
+            EhRequest request = new EhRequest();
+            request.setMethod(EhClient.METHOD_GET_FAVORITES);
+            request.setCallback(new GetFavoritesListener(getContext(),
+                    activity.getStageId(), getTag(),
+                    taskId, false, mUrlBuilder.getKeyword()));
+            request.setArgs(url, Settings.getShowJpnTitle());
+            mClient.execute(request);
         }
 
         @Override
@@ -1606,6 +1573,102 @@ public class FavoritesScene extends BaseScene implements
         @Override
         public boolean isInstance(SceneFragment scene) {
             return scene instanceof FavoritesScene;
+        }
+    }
+
+    private class RandomFavorite extends AsyncTask<Void, Void, GalleryInfo> {
+        OkHttpClient mOkHttpClient;
+
+        RandomFavorite(Context context) {
+            mOkHttpClient = EhApplication.getOkHttpClient(context);
+        }
+
+        public RandomFavorite() {
+        }
+
+        @Override
+        protected GalleryInfo doInBackground(Void... v) {
+            publishProgress();
+            if (mUrlBuilder==null){
+                return new GalleryInfo();
+            }
+            // local favorities
+            if (mUrlBuilder.getFavCat() == FavListUrlBuilder.FAV_CAT_LOCAL) {
+                String keyword = mUrlBuilder.getKeyword();
+                List<GalleryInfo> gInfoL;
+                if (TextUtils.isEmpty(keyword)) {
+                    gInfoL = EhDB.getAllLocalFavorites();
+                } else {
+                    gInfoL = EhDB.searchLocalFavorites(keyword);
+                }
+                return gInfoL.get((int) (Math.random() * gInfoL.size()));
+            }
+            // cloud favorities
+            try {
+                GalleryInfo lastGInfo, firstGInfo;
+                String url;
+
+                if ((mHelper.lastHref == null || mHelper.lastHref.isEmpty()) && (mHelper.firstHref == null || mHelper.firstHref.isEmpty())) { // only one page
+                    if (mHelper.getDataAtEx(0) == null) return null; // no gallery
+                    return mHelper.getDataAtEx((int) (Math.random() * mHelper.size()));
+                } else if (mHelper.lastHref == null || mHelper.lastHref.isEmpty()) { //many pages but user at the last page
+                    lastGInfo = mHelper.getDataAtEx(mHelper.size() - 1);
+                    firstGInfo = EhEngine.getAllFavorites(mOkHttpClient, mHelper.firstHref).galleryInfoList.get(0);
+                    url = mHelper.firstHref;
+                } else if (mHelper.firstHref == null || mHelper.firstHref.isEmpty()) { //many pages but user at the first page
+                    List<GalleryInfo> gInfoL = EhEngine.getAllFavorites(mOkHttpClient, mHelper.lastHref).galleryInfoList;
+                    lastGInfo = gInfoL.get(gInfoL.size() - 1);
+                    firstGInfo = mHelper.getDataAtEx(0);
+                    url = mHelper.lastHref.replace("&prev=1", "");
+                } else { // many pages
+                    List<GalleryInfo> gInfoL = EhEngine.getAllFavorites(mOkHttpClient, mHelper.lastHref).galleryInfoList;
+                    lastGInfo = gInfoL.get(gInfoL.size() - 1);
+                    firstGInfo = EhEngine.getAllFavorites(mOkHttpClient, mHelper.firstHref).galleryInfoList.get(0);
+                    url = mHelper.lastHref.replace("&prev=1", "");
+                }
+
+                long gidDiff = firstGInfo.gid - lastGInfo.gid;
+                long block = gidDiff / 50;
+                long rBlock = ((int) (Math.random() * block)) + 1;
+                List<GalleryInfo> rGInfoL = EhEngine.getAllFavorites(mOkHttpClient, url + "&next=" + (firstGInfo.gid - gidDiff / block * ((int) (Math.random() * block)) + 1)).galleryInfoList;
+                return rGInfoL.get((int) (Math.random() * rGInfoL.size()));
+            } catch (Throwable e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        protected void onProgressUpdate(Void... values) {
+            mHelper.showProgressBar(true);
+        }
+
+        @Override
+        protected void onPostExecute(GalleryInfo info) {
+            super.onPostExecute(info);
+
+            //抄onItemClick(EasyRecyclerView parent, View view, int position, long id)的跳轉功能
+            if (info == null) return;
+            Bundle args = new Bundle();
+            args.putString(GalleryDetailScene.KEY_ACTION, GalleryDetailScene.ACTION_GALLERY_INFO);
+            args.putParcelable(GalleryDetailScene.KEY_GALLERY_INFO, info);
+            Announcer announcer = new Announcer(GalleryDetailScene.class).setArgs(args);
+            /*View thumb;
+            if (null != (thumb = view.findViewById(R.id.thumb))) {
+                announcer.setTranHelper(new EnterGalleryDetailTransaction(thumb));
+            }*/
+            startScene(announcer);
+        }
+
+        public void random() {
+            if (mHelper == null) {
+                return;
+            }
+            List<GalleryInfo> gInfoL = mHelper.getData();
+            if (gInfoL == null || gInfoL.isEmpty()) {
+                return;
+            }
+
+            onPostExecute(gInfoL.get((int) (Math.random() * gInfoL.size())));
         }
     }
 }

@@ -29,15 +29,17 @@ import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import com.hippo.ehviewer.R
+import java.lang.RuntimeException
 
 class AppHelper {
-    private fun isWifiProxy(context: Context): Boolean {
-        val proxyAddress: String
-        val proxyPort: Int
-        proxyAddress = System.getProperty("http.proxyHost") as String
+    private fun isWifiProxy(context: Context?): Boolean {
+        var proxyPort: Int
+
+        var proxyAddress = System.getProperty("http.proxyHost")
         val portStr = System.getProperty("http.proxyPort")
-        proxyPort = (portStr ?: "-1").toInt()
-        return !TextUtils.isEmpty(proxyAddress) && proxyPort != -1
+        proxyPort = (if (portStr != null) portStr else "-1").toInt()
+
+        return (!TextUtils.isEmpty(proxyAddress)) && (proxyPort != -1)
     }
 
     companion object {
@@ -45,46 +47,42 @@ class AppHelper {
         fun sendEmail(
             from: Activity, address: String,
             subject: String?, text: String?
-        ): Boolean {
+        ) {
             val i = Intent(Intent.ACTION_SENDTO)
-            i.data = Uri.parse("mailto:$address")
+            i.setData(Uri.parse("mailto:$address"))
             if (subject != null) {
                 i.putExtra(Intent.EXTRA_SUBJECT, subject)
             }
             if (text != null) {
                 i.putExtra(Intent.EXTRA_TEXT, text)
             }
-            return try {
+
+            try {
                 from.startActivity(i)
-                true
             } catch (e: Throwable) {
                 ExceptionUtils.throwIfFatal(e)
                 Toast.makeText(from, R.string.error_cant_find_activity, Toast.LENGTH_SHORT).show()
-                false
             }
         }
 
         @JvmStatic
         fun share(from: Activity, text: String?): Boolean {
             val sendIntent = Intent()
-            sendIntent.action = Intent.ACTION_SEND
+            sendIntent.setAction(Intent.ACTION_SEND)
             sendIntent.putExtra(Intent.EXTRA_TEXT, text)
-            sendIntent.type = "text/plain"
+            sendIntent.setType("text/plain")
             val chooser = Intent.createChooser(sendIntent, from.getString(R.string.share))
-            return try {
+
+            try {
                 from.startActivity(chooser)
-                true
+                return true
             } catch (e: Throwable) {
                 ExceptionUtils.throwIfFatal(e)
                 Toast.makeText(from, R.string.error_cant_find_activity, Toast.LENGTH_SHORT).show()
-                false
+                return false
             }
         }
 
-        @JvmStatic
-        fun showSoftInput(context: Context?, view: View?) {
-            showSoftInput(context!!, view!!, true)
-        }
 
         @JvmStatic
         fun showSoftInput(context: Context, view: View, requestFocus: Boolean = true) {
@@ -109,8 +107,8 @@ class AppHelper {
         fun hideSoftInput(dialog: Dialog) {
             val view = dialog.currentFocus
             if (view != null) {
-                val imm =
-                    dialog.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                val imm = dialog.context
+                    .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(view.windowToken, 0)
             }
         }
@@ -127,25 +125,43 @@ class AppHelper {
             val clipData = ClipData.newPlainText(null, data)
 
             // 把数据集设置（复制）到剪贴板
-            clipboard.setPrimaryClip(clipData)
+            clipboard.setPrimaryClip(clipData!!)
         }
 
         @JvmStatic
         fun checkVPN(context: Context): Boolean {
-            val connectivityManager = context.getSystemService(
-                ConnectivityManager::class.java
-            )
+            val connectivityManager =
+                context.getSystemService<ConnectivityManager>(ConnectivityManager::class.java)
+
             val network = connectivityManager.activeNetwork
             //don't know why always returns null:
             val networkInfo = connectivityManager.getNetworkInfo(network)
-            val result = networkInfo != null && networkInfo.type == ConnectivityManager.TYPE_VPN
+            val result =
+                networkInfo != null && networkInfo.getType() == ConnectivityManager.TYPE_VPN
             if (result) {
                 try {
                     Toast.makeText(context, R.string.network_remind, Toast.LENGTH_LONG).show()
-                } catch (ignore: RuntimeException) {
+                } catch (_: RuntimeException) {
                 }
             }
             return !result
+        }
+
+        @JvmStatic
+        fun compareVersion(version1: String, version2: String): Int {
+            val parts1 = version1.split("\\.".toRegex()).toTypedArray()
+            val parts2 = version2.split("\\.".toRegex()).toTypedArray()
+            val length = parts1.size.coerceAtLeast(parts2.size)
+            for (i in 0 until length) {
+                val part1 = if (i < parts1.size) parts1[i].toInt() else 0
+                val part2 = if (i < parts2.size) parts2[i].toInt() else 0
+                if (part1 < part2) {
+                    return -1
+                } else if (part1 > part2) {
+                    return 1
+                }
+            }
+            return 0
         }
     }
 }
