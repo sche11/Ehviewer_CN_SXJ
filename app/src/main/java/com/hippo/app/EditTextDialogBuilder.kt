@@ -20,7 +20,6 @@ import android.content.Context
 import android.content.DialogInterface
 import android.view.KeyEvent
 import android.view.LayoutInflater
-import android.view.View
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.TextView.OnEditorActionListener
@@ -43,7 +42,7 @@ class EditTextDialogBuilder @SuppressLint("InflateParams") constructor(
         val view = LayoutInflater.from(getContext()).inflate(R.layout.dialog_edittext_builder, null)
         setView(view)
         mTextInputLayout = view as TextInputLayout
-        editText = view.findViewById<View>(R.id.edit_text) as EditText
+        editText = view.findViewById(R.id.edit_text)
         editText.setText(text)
         editText.setSelection(editText.text.length)
         editText.setOnEditorActionListener(this)
@@ -62,13 +61,13 @@ class EditTextDialogBuilder @SuppressLint("InflateParams") constructor(
         return mDialog!!
     }
 
-    override fun onEditorAction(v: TextView, actionId: Int, event: KeyEvent): Boolean {
-        return if (mDialog != null) {
+    override fun onEditorAction(v: TextView, actionId: Int, event: KeyEvent?): Boolean {
+        if (event != null && mDialog != null) {
             val button = mDialog!!.getButton(DialogInterface.BUTTON_POSITIVE)
             button?.performClick()
-            true
+            return true
         } else {
-            false
+            return false
         }
     }
 }

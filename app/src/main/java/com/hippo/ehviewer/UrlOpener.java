@@ -22,7 +22,9 @@ import android.net.Uri;
 import android.provider.Browser;
 import android.text.TextUtils;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
+
 import com.hippo.ehviewer.client.EhUrlOpener;
 import com.hippo.ehviewer.ui.MainActivity;
 import com.hippo.scene.Announcer;
@@ -35,7 +37,11 @@ public final class UrlOpener {
     }
 
     public static void openUrl(@NonNull Context context, String url, boolean ehUrl) {
-        if (TextUtils.isEmpty(url)) {
+        try {
+            if (TextUtils.isEmpty(url)) {
+                return;
+            }
+        } catch (VerifyError ignore) {
             return;
         }
 
@@ -48,7 +54,7 @@ public final class UrlOpener {
                 intent = new Intent(context, MainActivity.class);
                 intent.setAction(StageActivity.ACTION_START_SCENE);
                 intent.putExtra(StageActivity.KEY_SCENE_NAME, announcer.getClazz().getName());
-                intent.putExtra(StageActivity.KEY_SCENE_ARGS, announcer.args);
+                intent.putExtra(StageActivity.KEY_SCENE_ARGS, announcer.getArgs());
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 context.startActivity(intent);
                 return;

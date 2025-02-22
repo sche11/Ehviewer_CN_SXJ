@@ -118,12 +118,12 @@ import com.hippo.widget.ContentLayout;
 import com.hippo.widget.FabLayout;
 import com.hippo.widget.LoadImageViewNew;
 import com.hippo.widget.SearchBarMover;
-import com.hippo.yorozuya.AnimationUtils;
-import com.hippo.yorozuya.AssertUtils;
-import com.hippo.yorozuya.MathUtils;
-import com.hippo.yorozuya.SimpleAnimatorListener;
-import com.hippo.yorozuya.StringUtils;
-import com.hippo.yorozuya.ViewUtils;
+import com.hippo.lib.yorozuya.AnimationUtils;
+import com.hippo.lib.yorozuya.AssertUtils;
+import com.hippo.lib.yorozuya.MathUtils;
+import com.hippo.lib.yorozuya.SimpleAnimatorListener;
+import com.hippo.lib.yorozuya.StringUtils;
+import com.hippo.lib.yorozuya.ViewUtils;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -288,7 +288,7 @@ public final class GalleryListScene extends BaseScene
     private int popupWindowPosition = -1;
 
     private ShowcaseView mShowcaseView;
-
+    private GalleryListSceneDialog tagDialog;
     private DownloadManager mDownloadManager;
     private DownloadManager.DownloadInfoListener mDownloadInfoListener;
     private FavouriteStatusRouter mFavouriteStatusRouter;
@@ -409,8 +409,10 @@ public final class GalleryListScene extends BaseScene
             }
         };
         mFavouriteStatusRouter.addListener(mFavouriteStatusRouterListener);
+        if (ehTags==null){
+            ehTags = EhTagDatabase.getInstance(context);
+        }
 
-        ehTags = EhTagDatabase.getInstance(context);
 
         if (savedInstanceState == null) {
             onInit();
@@ -778,9 +780,14 @@ public final class GalleryListScene extends BaseScene
     }
 
     private boolean onTagLongClick(String tagName) {
-        GalleryListSecenDialog dialog = new GalleryListSecenDialog(this);
-        dialog.setTagName(tagName);
-        dialog.showTagLongPressDialog();
+        if (tagDialog==null){
+            tagDialog = new GalleryListSceneDialog(this);
+        }
+        if (ehTags==null){
+            ehTags = EhTagDatabase.getInstance(getContext());
+        }
+        tagDialog.setTagName(tagName);
+        tagDialog.showTagLongPressDialog(ehTags);
         return true;
     }
 
@@ -929,6 +936,10 @@ public final class GalleryListScene extends BaseScene
 
     void showAddQuickSearchDialog(final List<QuickSearch> list,
                                   final ArrayAdapter<QuickSearch> adapter, final ListView listView, final TextView tip) {
+        boolean translation = Settings.getShowTagTranslations();
+//        if (translation){
+//            String translationString = getTagCN();
+//        }
         Context context = getEHContext();
         final ListUrlBuilder urlBuilder = mUrlBuilder;
         if (null == context || null == urlBuilder) {
@@ -976,28 +987,29 @@ public final class GalleryListScene extends BaseScene
             QuickSearch quickSearch = urlBuilder.toQuickSearch();
 
             //汉化or不汉化
-            if (Settings.getShowTagTranslations()) {
+            if (translation) {
                 if (ehTags == null) {
                     ehTags = EhTagDatabase.getInstance(context);
                 }
                 //根据‘：’分割字符串为组名和标签名
                 //String[] tags = text.split(":");
                 //quickSearch.name = TagTranslationUtil.getTagCN(tags, ehTags);
-                String[] parts = text.split("(?=(?:(?:[^\"]*\"){2})*[^\"]*$)\\s+");
-                String newText = "";
-                for (int i = 0; i < parts.length; i++) {
-                    String[] tags = parts[i].split(":");
+//                String[] parts = text.split("(?=(?:(?:[^\"]*\"){2})*[^\"]*$)\\s+");
+                String[] parts = text.split("  ");
+                StringBuilder newText = new StringBuilder();
+                for (String part : parts) {
+                    String[] tags = part.split(":");
                     for (int j = 0; j < tags.length; j++) {
                         tags[j] = tags[j].replace("\"", "").replace("$", "");
                     }
-                    quickSearch.name = TagTranslationUtil.getTagCN(tags, ehTags);
-                    if (newText.isEmpty()) {
-                        newText = TagTranslationUtil.getTagCN(tags, ehTags);
+                    String trans = TagTranslationUtil.getTagCN(tags, ehTags);
+                    if (newText.length()==0) {
+                        newText.append(trans);
                     } else {
-                        newText += " " + TagTranslationUtil.getTagCN(tags, ehTags);
+                        newText.append("  ").append(trans);
                     }
                 }
-                quickSearch.name = newText;
+                quickSearch.name = newText.toString();
             } else {
                 quickSearch.name = text;
             }
@@ -1052,6 +1064,13 @@ public final class GalleryListScene extends BaseScene
     private View subscriptionViewBuild(LayoutInflater inflater) {
         mSubscriptionDraw = new SubscriptionDraw(getEHContext(), inflater, mClient, getTag(), ehTags);
         return mSubscriptionDraw.onCreate(drawPager, getActivity2(), this);
+    }
+    @Override
+    public void setTagList(UserTagList tagList) {
+        if (mSubscriptionDraw==null){
+            return;
+        }
+         mSubscriptionDraw.setUserTagList(tagList);
     }
 
     @Override
@@ -1133,18 +1152,19 @@ public final class GalleryListScene extends BaseScene
     @Override
     public void onResume() {
         super.onResume();
-        if (mBookmarksDraw==null){
+        if (mBookmarksDraw == null) {
             return;
         }
         mBookmarksDraw.resume();
-        if (mSubscriptionDraw==null){
+        if (mSubscriptionDraw == null) {
             return;
         }
         mSubscriptionDraw.resume();
     }
+
     @Override
     public void onBackPressed() {
-        if (popupWindow!=null){
+        if (popupWindow != null) {
             popupWindow.dismiss();
         }
         if (null != mShowcaseView) {
@@ -1211,7 +1231,7 @@ public final class GalleryListScene extends BaseScene
         args.putParcelable(GalleryDetailScene.KEY_GALLERY_INFO, gi);
         Announcer announcer = new Announcer(GalleryDetailScene.class).setArgs(args);
         View thumb;
-        if (null != (thumb = view.findViewById(R.id.thumb))) {
+        if (null != view && null != (thumb = view.findViewById(R.id.thumb))) {
             announcer.setTranHelper(new EnterGalleryDetailTransaction(thumb));
         }
         startScene(announcer);
@@ -1299,7 +1319,7 @@ public final class GalleryListScene extends BaseScene
                             if (favourited) {
                                 CommonOperations.removeFromFavorites(activity, gi, new RemoveFromFavoriteListener(context, activity.getStageId(), getTag()));
                             } else {
-                                CommonOperations.addToFavorites(activity, gi, new AddToFavoriteListener(context, activity.getStageId(), getTag()));
+                                CommonOperations.addToFavorites(activity, gi, new AddToFavoriteListener(context, activity.getStageId(), getTag()), false);
                             }
                             break;
                     }
@@ -1413,11 +1433,20 @@ public final class GalleryListScene extends BaseScene
                 break;
             case 1: // Go to
                 if (mHelper.canGoTo()) {
+                    if (mUrlBuilder != null && mUrlBuilder.getMode() == ListUrlBuilder.MODE_TOP_LIST)
+                        break;
                     showGoToDialog();
                 }
                 break;
             case 2: // Refresh
                 mHelper.refresh();
+                break;
+            case 3:
+                List<GalleryInfo> gInfoL = mHelper.getData();
+                if (gInfoL == null || gInfoL.isEmpty()) {
+                    return;
+                }
+                onItemClick(null, gInfoL.get((int) (Math.random() * gInfoL.size())));
                 break;
         }
 
@@ -1966,7 +1995,7 @@ public final class GalleryListScene extends BaseScene
 
         public GalleryListAdapter(@NonNull LayoutInflater inflater,
                                   @NonNull Resources resources, @NonNull RecyclerView recyclerView, int type) {
-            super(inflater, resources, recyclerView, type, true, executorService,showReadProgress);
+            super(inflater, resources, recyclerView, type, true, executorService, showReadProgress);
         }
 
         @Override
@@ -2007,9 +2036,14 @@ public final class GalleryListScene extends BaseScene
                 request.setMethod(EhClient.METHOD_GET_GALLERY_LIST);
                 request.setCallback(new GetGalleryListListener(getContext(),
                         activity.getStageId(), getTag(), taskId));
-                request.setArgs(url);
+                request.setArgs(url, mUrlBuilder.getMode());
                 mClient.execute(request);
             }
+        }
+
+        @Override
+        protected void getPageData(int taskId, int type, int page, String append) {
+            // empty
         }
 
         @Override
@@ -2031,7 +2065,7 @@ public final class GalleryListScene extends BaseScene
             request.setMethod(EhClient.METHOD_GET_GALLERY_LIST);
             request.setCallback(new GetGalleryListListener(getContext(),
                     activity.getStageId(), getTag(), taskId));
-            request.setArgs(url);
+            request.setArgs(url, mUrlBuilder.getMode());
             mClient.execute(request);
         }
 
@@ -2041,6 +2075,7 @@ public final class GalleryListScene extends BaseScene
             return GalleryListScene.this.getEHContext();
         }
 
+        @SuppressLint("NotifyDataSetChanged")
         @Override
         protected void notifyDataSetChanged() {
             if (null != mAdapter) {
