@@ -22,8 +22,8 @@ import android.os.Environment;
 import androidx.annotation.Nullable;
 import com.hippo.ehviewer.client.exception.ParseException;
 import com.hippo.util.ReadableTime;
-import com.hippo.yorozuya.FileUtils;
-import com.hippo.yorozuya.IOUtils;
+import com.hippo.lib.yorozuya.FileUtils;
+import com.hippo.lib.yorozuya.IOUtils;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -36,6 +36,7 @@ public class AppConfig {
 
     private static final String DOWNLOAD = "download";
     private static final String TEMP = "temp";
+    private static final String ARCHIVER = "archiver";
     private static final String IMAGE = "image";
     private static final String PARSE_ERROR = "parse_error";
     private static final String LOGCAT = "logcat";
@@ -90,6 +91,10 @@ public class AppConfig {
     public static File getExternalTempDir() {
         return getDirInExternalAppDir(TEMP);
     }
+    @Nullable
+    public static File getExternalArchiverDir() {
+        return getDirInExternalAppDir(ARCHIVER);
+    }
 
     @Nullable
     public static File getExternalImageDir() {
@@ -126,6 +131,17 @@ public class AppConfig {
         File dir = sContext.getCacheDir();
         File file;
         if (null != dir && FileUtils.ensureDirectory(file = new File(dir, TEMP))) {
+            return file;
+        } else {
+            return null;
+        }
+    }
+
+    @Nullable
+    public static File getArchiverDir() {
+        File dir = sContext.getCacheDir();
+        File file;
+        if (null != dir && FileUtils.ensureDirectory(file = new File(dir, ARCHIVER))) {
             return file;
         } else {
             return null;

@@ -18,7 +18,6 @@ package com.hippo.app
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.LayoutInflater
-import android.view.View
 import android.widget.CheckBox
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -37,8 +36,8 @@ class CheckBoxDialogBuilder @SuppressLint("InflateParams") constructor(
     init {
         val view = LayoutInflater.from(getContext()).inflate(R.layout.dialog_checkbox_builder, null)
         setView(view)
-        val messageView = view.findViewById<View>(R.id.message) as TextView
-        mCheckBox = view.findViewById<View>(R.id.checkbox) as CheckBox
+        val messageView = view.findViewById<TextView>(R.id.message)
+        mCheckBox = view.findViewById(R.id.checkbox)
         messageView.text = message
         mCheckBox.text = checkText
         mCheckBox.isChecked = checked

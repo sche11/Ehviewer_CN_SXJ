@@ -48,7 +48,7 @@ import com.hippo.ehviewer.dao.DownloadInfo;
 import com.hippo.ehviewer.dao.QuickSearch;
 import com.hippo.ehviewer.download.DownloadManager;
 import com.hippo.util.PermissionRequester;
-import com.microsoft.appcenter.crashes.Crashes;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 
 import org.greenrobot.eventbus.EventBus;
 
@@ -165,14 +165,18 @@ public class WiFiClientActivity extends AppCompatActivity {
      * @return
      */
     private String getIp() {
-        //检查Wifi状态
-        if (!wifiManager.isWifiEnabled())
-            wifiManager.setWifiEnabled(true);
-        WifiInfo wi = wifiManager.getConnectionInfo();
-        //获取32位整型IP地址
-        int ipAdd = wi.getIpAddress();
-        //把整型地址转换成“*.*.*.*”地址
-        return intToIp(ipAdd);
+       try {
+           //检查Wifi状态
+           if (!wifiManager.isWifiEnabled())
+               wifiManager.setWifiEnabled(true);
+           WifiInfo wi = wifiManager.getConnectionInfo();
+           //获取32位整型IP地址
+           int ipAdd = wi.getIpAddress();
+           //把整型地址转换成“*.*.*.*”地址
+           return intToIp(ipAdd);
+       }catch (SecurityException e){
+           return "";
+       }
     }
 
     private String intToIp(int i) {
@@ -282,7 +286,7 @@ public class WiFiClientActivity extends AppCompatActivity {
                    DownloadInfo info = DownloadInfo.downloadInfoFromJson(jsonArray.getJSONObject(i));
                    manager.addDownloadInfo(info,info.label);
                }catch (ClassCastException e){
-                   Crashes.trackError(e);
+                   FirebaseCrashlytics.getInstance().recordException(e);
                }
             }
             connectThread.dataProcessed(response);

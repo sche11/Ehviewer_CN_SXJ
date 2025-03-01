@@ -16,8 +16,6 @@
 
 package com.hippo.ehviewer.spider;
 
-import static com.hippo.ehviewer.spider.SpiderDen.generateImageFilename;
-
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.BitmapFactory;
@@ -52,24 +50,24 @@ import com.hippo.ehviewer.client.parser.GalleryPageUrlParser;
 import com.hippo.ehviewer.gallery.GalleryProvider2;
 import com.hippo.lib.glgallery.GalleryPageView;
 import com.hippo.lib.glgallery.GalleryProvider;
-import com.hippo.image.Image;
+import com.hippo.lib.image.Image;
 import com.hippo.streampipe.InputStreamPipe;
 import com.hippo.streampipe.OutputStreamPipe;
 import com.hippo.unifile.UniFile;
 import com.hippo.util.ExceptionUtils;
-import com.hippo.util.FileUtils;
 import com.hippo.util.IoThreadPoolExecutor;
-import com.hippo.yorozuya.IOUtils;
-import com.hippo.yorozuya.MathUtils;
-import com.hippo.yorozuya.OSUtils;
-import com.hippo.yorozuya.StringUtils;
-import com.hippo.yorozuya.Utilities;
-import com.hippo.yorozuya.collect.SparseJLArray;
-import com.hippo.yorozuya.thread.PriorityThread;
-import com.hippo.yorozuya.thread.PriorityThreadFactory;
-import com.microsoft.appcenter.crashes.Crashes;
+import com.hippo.lib.yorozuya.IOUtils;
+import com.hippo.lib.yorozuya.MathUtils;
+import com.hippo.lib.yorozuya.OSUtils;
+import com.hippo.lib.yorozuya.StringUtils;
+import com.hippo.lib.yorozuya.Utilities;
+import com.hippo.lib.yorozuya.collect.SparseJLArray;
+import com.hippo.lib.yorozuya.thread.PriorityThread;
+import com.hippo.lib.yorozuya.thread.PriorityThreadFactory;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 
 import java.io.BufferedInputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -79,6 +77,8 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -104,7 +104,6 @@ public final class SpiderQueen implements Runnable {
     public static final int STATE_FAILED = 3;
     public static final int DECODE_THREAD_NUM = 2;
     public static final String SPIDER_INFO_FILENAME = ".ehviewer";
-    public static final String SPIDER_INFO_BACKUP_FILENAME = ".ehviewer_backup";
 
     public static final String SPIDER_INFO_BACKUP_DIR = "backupDir";
     private static final String TAG = SpiderQueen.class.getSimpleName();
@@ -164,6 +163,10 @@ public final class SpiderQueen implements Runnable {
     private volatile int mDownloadPage = -1;
     private final AtomicReference<String> showKey = new AtomicReference<>();
 
+    private final int downloadTimeout;
+
+    private long receiveBytesBefore;
+
     private SpiderQueen(EhApplication application, @NonNull GalleryInfo galleryInfo) {
         mHttpClient = EhApplication.getOkHttpClient(application);
         mHttpImageClient = EhApplication.getImageOkHttpClient(application);
@@ -182,6 +185,7 @@ public final class SpiderQueen implements Runnable {
                 0, TimeUnit.SECONDS, new LinkedBlockingDeque<>(),
                 new PriorityThreadFactory(SpiderWorker.class.getSimpleName(), Process.THREAD_PRIORITY_BACKGROUND));
         mDownloadDelay = Settings.getDownloadDelay();
+        downloadTimeout = Settings.getDownloadTimeout();
     }
 
     @UiThread
@@ -230,6 +234,7 @@ public final class SpiderQueen implements Runnable {
         }
         return startPage;
     }
+
     @UiThread
     public static void releaseSpiderQueen(@NonNull SpiderQueen queen, @Mode int mode) {
         OSUtils.checkMainLoop();
@@ -594,14 +599,14 @@ public final class SpiderQueen implements Runnable {
                 return;
             }
 
-           try {
-               for (; mWorkerCount < mWorkerMaxCount; mWorkerCount++) {
-                   mWorkerPoolExecutor.execute(new SpiderWorker());
-               }
-           }catch (OutOfMemoryError outOfMemoryError){
-               Crashes.trackError(outOfMemoryError);
-               notifyFinish();
-           }
+            try {
+                for (; mWorkerCount < mWorkerMaxCount; mWorkerCount++) {
+                    mWorkerPoolExecutor.execute(new SpiderWorker());
+                }
+            } catch (OutOfMemoryError outOfMemoryError) {
+                FirebaseCrashlytics.getInstance().recordException(outOfMemoryError);
+                notifyFinish();
+            }
         }
     }
 
@@ -670,7 +675,6 @@ public final class SpiderQueen implements Runnable {
             IOUtils.closeQuietly(os);
         }
     }
-
 
     @Nullable
     public String getExtension(int index) {
@@ -807,7 +811,7 @@ public final class SpiderQueen implements Runnable {
             return spiderInfo;
         } catch (Throwable e) {
             ExceptionUtils.throwIfFatal(e);
-            Crashes.trackError(e);
+            FirebaseCrashlytics.getInstance().recordException(e);
             return null;
         }
     }
@@ -1126,6 +1130,9 @@ public final class SpiderQueen implements Runnable {
     }
 
     private class SpiderWorker implements Runnable {
+        private Timer downloadSpeedZeroTimeCount;
+
+        private boolean cancelDownload = false;
 
         private final long mGid;
 
@@ -1237,7 +1244,6 @@ public final class SpiderQueen implements Runnable {
                         }
                     }
                 }
-
                 if (imageUrl == null) {
                     if (localShowKey == null) {
                         error = "ShowKey error";
@@ -1287,7 +1293,6 @@ public final class SpiderQueen implements Runnable {
 //                    } else {
 //                        refNew = referer + "?nl=" + skipHathKey;
 //                    }
-                    String refNew = referer;
                     if (targetImageUrl.contains("?")) {
                         targetImageUrl = targetImageUrl + "&nl=" + skipHathKey;
                     } else {
@@ -1295,16 +1300,16 @@ public final class SpiderQueen implements Runnable {
                     }
 
                     Call call = mHttpImageClient.newBuilder()
-                            .callTimeout(0, TimeUnit.SECONDS).build()
-                            .newCall(new EhRequestBuilder(targetImageUrl, refNew).build());
+                            .callTimeout(30, TimeUnit.SECONDS).build()
+                            .newCall(new EhRequestBuilder(targetImageUrl, referer).build());
                     Response response;
                     try {
                         response = call.execute();
                         targetImageUrl = response.header("location");
                     } catch (IOException e) {
-                        error = "TargetImageUrl error";
-                        IOException ioException = new IOException("原图链接获取失败",e);
-                        Crashes.trackError(ioException);
+                        error = "GP不足/Insufficient GP";
+                        IOException ioException = new IOException("原图链接获取失败", e);
+                        FirebaseCrashlytics.getInstance().recordException(ioException);
                         break;
                     }
                 } else {
@@ -1312,7 +1317,7 @@ public final class SpiderQueen implements Runnable {
                 }
 
                 if (targetImageUrl == null) {
-                    error = "TargetImageUrl error";
+                    error = "GP不足/Insufficient GP";
                     break;
                 }
                 if (DEBUG_LOG) {
@@ -1322,16 +1327,31 @@ public final class SpiderQueen implements Runnable {
                 // Download image
                 InputStream is = null;
                 try {
+
                     if (DEBUG_LOG) {
                         Log.d(TAG, "Start download image " + index);
                     }
 
                     // disable Call Timeout for image-downloading requests
                     Call call = mHttpClient.newBuilder()
-                            .callTimeout(0, TimeUnit.SECONDS).build()
+                            .callTimeout(downloadTimeout, TimeUnit.SECONDS).build()
                             .newCall(new EhRequestBuilder(targetImageUrl, referer).build());
                     Response response = call.execute();
                     ResponseBody responseBody = response.body();
+
+                    String responseUrl = null;
+                    if (response.networkResponse() != null) {
+                        responseUrl = response.networkResponse().request().url().toString();
+                    } else if (response.cacheResponse() != null) {
+                        responseUrl = response.cacheResponse().request().url().toString();
+                    }
+                    // 反劫持校验
+                    if (!targetImageUrl.equals(responseUrl)) {
+                        error = "链接疑似被劫持\nThe link is suspected to be hijacked";
+                        response.close();
+                        forceHtml = true;
+                        continue;
+                    }
 
                     if (response.code() >= 400) {
                         // Maybe 404
@@ -1352,6 +1372,9 @@ public final class SpiderQueen implements Runnable {
                     MediaType mediaType = responseBody.contentType();
                     if (mediaType != null) {
                         extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mediaType.toString());
+                        if (extension != null&&!extension.contains(".")){
+                            extension= "."+extension;
+                        }
                     }
                     // Ensure extension
                     if (!Utilities.contain(GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS, extension)) {
@@ -1388,6 +1411,25 @@ public final class SpiderQueen implements Runnable {
                             // Update page percent
                             if (contentLength > 0) {
                                 mPagePercentMap.put(index, (float) receivedSize / contentLength);
+                            }
+                            if (receivedSize == receiveBytesBefore) {
+                                if (downloadSpeedZeroTimeCount == null) {
+                                    try {
+                                        downloadSpeedZeroTimeCount = new Timer();
+                                        cancelDownload = false;
+                                        downloadSpeedZeroTimeCount.schedule(new TimeCount(), 3000);
+                                    } catch (Throwable e) {
+                                        FirebaseCrashlytics.getInstance().recordException(e);
+                                    }
+                                }
+                                if (cancelDownload) {
+                                    cancelTimeCount();
+                                    response.close();
+                                    break;
+                                }
+                            } else {
+                                cancelTimeCount();
+                                receiveBytesBefore = receivedSize;
                             }
                             // Notify listener
                             notifyPageDownload(index, contentLength, receivedSize, bytesRead);
@@ -1491,18 +1533,7 @@ public final class SpiderQueen implements Runnable {
         private boolean runInternal() {
             SpiderInfo spiderInfo = mSpiderInfo.get();
             UniFile downloadDir = mSpiderDen.getDownloadDir();
-            UniFile backupFile;
-            if (downloadDir == null) {
-                backupFile = null;
-            } else {
-                backupFile = downloadDir.findFile(SPIDER_INFO_BACKUP_FILENAME);
-            }
             SpiderInfo oldInfo;
-            if (backupFile == null) {
-                oldInfo = null;
-            } else {
-                oldInfo = SpiderInfo.read(backupFile);
-            }
 
             if (spiderInfo == null) {
                 return false;
@@ -1550,13 +1581,8 @@ public final class SpiderQueen implements Runnable {
 
             // Check exist for not force request
             if (!force && mSpiderDen.contain(index)) {
-//                if (comparedPToken(index, spiderInfo)) {
-                if (comparedPTokenIndex(index, spiderInfo, oldInfo)) {
-                    updatePageState(index, STATE_FINISHED);
-                    return true;
-                }
-//                updatePageState(index, STATE_FINISHED);
-//                return true;
+                updatePageState(index, STATE_FINISHED);
+                return true;
             }
 
             // Clear TOKEN_FAILED for force request
@@ -1648,148 +1674,12 @@ public final class SpiderQueen implements Runnable {
             return downloadImage(mGid, index, pToken, previousPToken, force);
         }
 
-
-        /**
-         * 仅校验对应位置的文件pToken，不一致则舍弃，一致则保留
-         *
-         * @param index
-         * @return
-         */
-        private boolean comparedPTokenIndex(int index, SpiderInfo spiderInfo, SpiderInfo oldInfo) {
-            String pToken = spiderInfo.pTokenMap.get(index);
-            UniFile downloadDir = mSpiderDen.getDownloadDir();
-            if (downloadDir == null) {
-                return false;
+        private void cancelTimeCount() {
+            if (downloadSpeedZeroTimeCount != null) {
+                downloadSpeedZeroTimeCount.cancel();
+                downloadSpeedZeroTimeCount = null;
             }
-
-            if (oldInfo == null) {
-                return true;
-            }
-
-            String oldPToken = oldInfo.pTokenMap.get(index);
-
-            if (pToken == null) {
-                if (oldPToken != null) {
-                    return false;
-                }
-                Log.e("spiderQueen", "旧的pToken已校验删除");
-                return true;
-            }
-            if (oldPToken == null) {
-                return true;
-            }
-            return pToken.equals(oldPToken);
-        }
-
-        /**
-         * 先检测本地备份文件是否存在，不存在则检测备份文件夹内数据
-         * 如果存在备份配置，则检测对应位置pToken与新版本是否一致
-         * 检测一致则返回true
-         * 不一致则获取对应位置文件
-         * 将此位置文件复制到备份文件夹内以pToken命名的同后缀文件中，并删除此文件
-         * 在备份文件夹内查询新的pToken名称的文件，如果存在则写回画廊目录并删除备份文件，并返回true
-         * 如果备份文件夹中不存在对应新的pToken的文件，则查询旧的备份文件信息中是否存在同样名称但是位置不同的pToken
-         * 如果存在，则将旧位置的文件修改至新位置并返回true
-         * 如果不存，则返回false
-         * 每次匹配均从旧备份文件中删除对应位置信息
-         * 当旧备份pToken列表中不在有有效数据后删除备份文件
-         * <p>
-         * 过于复杂，测试工作量过大
-         *
-         * @param index
-         * @return
-         */
-        private boolean comparedPToken(int index, SpiderInfo spiderInfo) {
-            String pToken = spiderInfo.pTokenMap.get(index);
-            UniFile downloadDir = mSpiderDen.getDownloadDir();
-            if (downloadDir == null) {
-                return false;
-            }
-            UniFile backupFile = downloadDir.findFile(SPIDER_INFO_BACKUP_FILENAME);
-
-            if (backupFile == null) {
-                return checkInBackupDir(pToken, downloadDir, index);
-            }
-            SpiderInfo oldInfo = SpiderInfo.read(backupFile);
-            if (oldInfo == null) {
-                return true;
-            }
-
-            String oldPToken = oldInfo.pTokenMap.get(index);
-            try {
-                if (pToken == null) {
-                    Log.e("spiderQueen", "旧的pToken已校验删除");
-                    return true;
-                }
-                if (pToken.equals(oldPToken)) {
-                    return true;
-                }
-
-                for (String extension : GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
-                    String filename = generateImageFilename(index, extension);
-                    UniFile image = downloadDir.findFile(filename);
-                    if (image != null) {
-                        UniFile backUpDir = downloadDir.findFile(SPIDER_INFO_BACKUP_DIR);
-                        if (backUpDir == null) {
-                            backUpDir = downloadDir.createDirectory(SPIDER_INFO_BACKUP_DIR);
-                        }
-                        try {
-                            String imageName = image.getName();
-                            String[] names = imageName.split("\\.");
-                            if (names.length == 0) {
-                                Log.e("spiderQueen", "type miss");
-                            }
-                            String pTokenFileName = oldPToken + "." + names[names.length - 1];
-                            UniFile pTokenFile = backUpDir.createFile(pTokenFileName);
-                            FileUtils.copyFile(image, pTokenFile, true);
-                        } catch (NullPointerException e) {
-                            Crashes.trackError(e);
-                        }
-                        image.delete();
-                        return false;
-                    }
-                }
-
-                return false;
-            } finally {
-                oldInfo.pTokenMap.remove(index);
-                if (oldInfo.pTokenMap.size() == 0) {
-                    backupFile.delete();
-                } else {
-                    try {
-                        oldInfo.write(backupFile.openOutputStream());
-                    } catch (IOException e) {
-                        Crashes.trackError(e);
-                    }
-                }
-            }
-        }
-
-        private boolean checkInBackupDir(String pToken, UniFile fileDir, int index) {
-            UniFile dir = fileDir.findFile(SPIDER_INFO_BACKUP_DIR);
-            if (dir == null || !dir.isDirectory()) {
-                return false;
-            }
-            for (String extension : GalleryProvider2.SUPPORT_IMAGE_EXTENSIONS) {
-                String filename = pToken + extension;
-                UniFile image = dir.findFile(filename);
-                if (image != null) {
-                    try {
-                        String[] strings = image.getName().split("\\.");
-                        String fileExt = "." + strings[strings.length - 1];
-                        String fileName = generateImageFilename(index, fileExt);
-                        UniFile indexFile = dir.createFile(fileName);
-                        FileUtils.copyFile(image, indexFile, true);
-                        image.delete();
-                        return true;
-                    } catch (NullPointerException e) {
-                        Crashes.trackError(e);
-                        return false;
-                    }
-                }
-            }
-
-            return false;
+            cancelDownload = false;
         }
 
         @Override
@@ -1816,10 +1706,22 @@ public final class SpiderQueen implements Runnable {
             if (finish) {
                 notifyFinish();
             }
-
+            cancelTimeCount();
             if (DEBUG_LOG) {
                 Log.i(TAG, Thread.currentThread().getName() + ": end");
             }
+        }
+
+        private class TimeCount extends TimerTask {
+            public TimeCount() {
+
+            }
+
+            @Override
+            public void run() {
+                cancelDownload = true;
+            }
+
         }
     }
 
@@ -1882,7 +1784,7 @@ public final class SpiderQueen implements Runnable {
 
                 pipe.obtain();
                 try {
-                    is = new AutoCloseInputStream(pipe, pipe.open());
+                    is = pipe.open();
                 } catch (IOException e) {
                     // Can't open pipe
                     error = GetText.getString(R.string.error_reading_failed);
@@ -1892,7 +1794,18 @@ public final class SpiderQueen implements Runnable {
                 }
 
                 if (is != null) {
-                    image = Image.decode(is, true);
+                    try {
+                        image = Image.decode((FileInputStream) is, false);
+                    }catch (OutOfMemoryError e){
+                        FirebaseCrashlytics.getInstance().recordException(e);
+                    }finally {
+                        try {
+                            is.close();
+                        } catch (IOException e) {
+                            Log.e(TAG, "解码失败", e);
+                            FirebaseCrashlytics.getInstance().recordException(e);
+                        }
+                    }
                     if (image == null) {
                         error = GetText.getString(R.string.error_decoding_failed);
                     }

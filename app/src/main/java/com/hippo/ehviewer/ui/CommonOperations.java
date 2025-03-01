@@ -32,8 +32,8 @@ import com.hippo.ehviewer.download.DownloadManager;
 import com.hippo.ehviewer.download.DownloadService;
 import com.hippo.ehviewer.ui.scene.BaseScene;
 import com.hippo.unifile.UniFile;
-import com.hippo.yorozuya.IOUtils;
-import com.hippo.yorozuya.collect.LongList;
+import com.hippo.lib.yorozuya.IOUtils;
+import com.hippo.lib.yorozuya.collect.LongList;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,13 +61,13 @@ public final class CommonOperations {
     }
 
     public static void addToFavorites(final Activity activity, final GalleryInfo galleryInfo,
-                                      final EhClient.Callback<Void> listener) {
+                                      final EhClient.Callback<Void> listener, boolean isDefaultFavSolt) {
         int slot = Settings.getDefaultFavSlot();
         String[] items = new String[11];
         items[0] = activity.getString(R.string.local_favorites);
         String[] favCat = Settings.getFavCat();
         System.arraycopy(favCat, 0, items, 1, 10);
-        if (slot >= -1 && slot <= 9) {
+        if ((slot >= -1 && slot <= 9)&&!isDefaultFavSolt) {
             String newFavoriteName = slot >= 0 ? items[slot + 1] : null;
             doAddToFavorites(activity, galleryInfo, slot, new DelegateFavoriteCallback(listener, galleryInfo, newFavoriteName, slot));
         } else {

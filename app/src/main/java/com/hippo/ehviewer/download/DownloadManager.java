@@ -22,7 +22,6 @@ import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.util.SparseArray;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -35,17 +34,17 @@ import com.hippo.ehviewer.dao.DownloadLabel;
 import com.hippo.ehviewer.spider.SpiderDen;
 import com.hippo.ehviewer.spider.SpiderInfo;
 import com.hippo.ehviewer.spider.SpiderQueen;
-import com.hippo.image.Image;
+import com.hippo.lib.image.Image;
 import com.hippo.unifile.UniFile;
 import com.hippo.util.IoThreadPoolExecutor;
-import com.hippo.yorozuya.ConcurrentPool;
-import com.hippo.yorozuya.MathUtils;
-import com.hippo.yorozuya.ObjectUtils;
-import com.hippo.yorozuya.SimpleHandler;
-import com.hippo.yorozuya.collect.LongList;
-import com.hippo.yorozuya.collect.SparseIJArray;
-import com.hippo.yorozuya.collect.SparseJLArray;
-import com.microsoft.appcenter.crashes.Crashes;
+import com.hippo.lib.yorozuya.ConcurrentPool;
+import com.hippo.lib.yorozuya.MathUtils;
+import com.hippo.lib.yorozuya.ObjectUtils;
+import com.hippo.lib.yorozuya.SimpleHandler;
+import com.hippo.lib.yorozuya.collect.LongList;
+import com.hippo.lib.yorozuya.collect.SparseIJArray;
+import com.hippo.lib.yorozuya.collect.SparseJLArray;
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -215,7 +214,7 @@ public class DownloadManager implements SpiderQueen.OnSpiderListener {
                 return 0;
             }
         } catch (NullPointerException e) {
-            Crashes.trackError(e);
+            FirebaseCrashlytics.getInstance().recordException(e);
             return 0;
         }
     }
@@ -549,7 +548,7 @@ public class DownloadManager implements SpiderQueen.OnSpiderListener {
         }
     }
 
-    public void addDownload(GalleryInfo galleryInfo, @Nullable String label) {
+    public void addDownload(GalleryInfo galleryInfo, @Nullable String label, int state) {
         if (containDownloadInfo(galleryInfo.gid)) {
             // Contain
             return;
@@ -558,11 +557,17 @@ public class DownloadManager implements SpiderQueen.OnSpiderListener {
         // It is new download info
         DownloadInfo info = new DownloadInfo(galleryInfo);
         info.label = label;
-        info.state = DownloadInfo.STATE_NONE;
+        info.state = state;
         info.time = System.currentTimeMillis();
 
         // Add to label download list
         LinkedList<DownloadInfo> list = getInfoListForLabel(info.label);
+        if (!mLabelCountMap.containsKey(label)) {
+            mLabelCountMap.put(label, 1L);
+        } else {
+            long value = mLabelCountMap.get(label) + 1L;
+            mLabelCountMap.put(label, value);
+        }
         if (list == null) {
             Log.e(TAG, "Can't find download info list with label: " + label);
             return;
@@ -582,6 +587,10 @@ public class DownloadManager implements SpiderQueen.OnSpiderListener {
         }
     }
 
+    public void addDownload(GalleryInfo galleryInfo, @Nullable String label) {
+        addDownload(galleryInfo, label, DownloadInfo.STATE_NONE);
+    }
+
     public void addDownloadInfo(GalleryInfo galleryInfo, @Nullable String label) {
         if (containDownloadInfo(galleryInfo.gid)) {
             // Contain
@@ -592,7 +601,9 @@ public class DownloadManager implements SpiderQueen.OnSpiderListener {
         DownloadInfo info = new DownloadInfo(galleryInfo);
         info.label = label;
         info.state = DownloadInfo.STATE_NONE;
-        info.time = System.currentTimeMillis();
+        if (info.time == 0) {
+            info.time = System.currentTimeMillis();
+        }
 
         // Add to label download list
         LinkedList<DownloadInfo> list = getInfoListForLabel(info.label);

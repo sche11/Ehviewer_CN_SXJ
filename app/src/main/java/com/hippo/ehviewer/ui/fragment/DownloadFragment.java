@@ -22,11 +22,12 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.preference.Preference;
-import android.preference.PreferenceFragment;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceFragmentCompat;
+
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.ui.CommonOperations;
@@ -34,7 +35,7 @@ import com.hippo.ehviewer.ui.DirPickerActivity;
 import com.hippo.unifile.UniFile;
 import com.hippo.util.ExceptionUtils;
 
-public class DownloadFragment extends PreferenceFragment implements
+public class DownloadFragment extends BasePreferenceFragmentCompat implements
         Preference.OnPreferenceChangeListener,
         Preference.OnPreferenceClickListener {
 
@@ -47,18 +48,19 @@ public class DownloadFragment extends PreferenceFragment implements
     private Preference mDownloadLocation;
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         addPreferencesFromResource(R.xml.download_settings);
 
         Preference mediaScan = findPreference(Settings.KEY_MEDIA_SCAN);
         Preference imageResolution = findPreference(Settings.KEY_IMAGE_RESOLUTION);
+        Preference downloadTimeout = findPreference(Settings.KEY_DOWNLOAD_TIMEOUT);
         mDownloadLocation = findPreference(KEY_DOWNLOAD_LOCATION);
 
         onUpdateDownloadLocation();
 
         mediaScan.setOnPreferenceChangeListener(this);
         imageResolution.setOnPreferenceChangeListener(this);
+        downloadTimeout.setOnPreferenceChangeListener(this);
 
         if (mDownloadLocation != null) {
             mDownloadLocation.setOnPreferenceClickListener(this);
@@ -201,7 +203,20 @@ public class DownloadFragment extends PreferenceFragment implements
                 Settings.putImageResolution((String) newValue);
             }
             return true;
+        }else if (Settings.KEY_DOWNLOAD_TIMEOUT.equals(key)) {
+            if (newValue instanceof String) {
+                Settings.setDownloadTimeout(toTimeoutTime(newValue));
+            }
+            return true;
         }
         return false;
+    }
+
+    private int toTimeoutTime(Object newValue) {
+        try{
+            return Integer.parseInt(newValue.toString());
+        }catch (NumberFormatException e){
+            return 0;
+        }
     }
 }
