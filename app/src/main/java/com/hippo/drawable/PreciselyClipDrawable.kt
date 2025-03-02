@@ -19,7 +19,8 @@ import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
-import com.hippo.yorozuya.MathUtils
+import android.graphics.drawable.DrawableWrapper
+import com.hippo.lib.yorozuya.MathUtils
 
 /**
  * Show a part of the original drawable
@@ -30,10 +31,11 @@ class PreciselyClipDrawable(
     offsetY: Int,
     width: Int,
     height: Int
-) : DrawableWrapper(drawable) {
+) :
+    DrawableWrapper(drawable) {
     private var mClip = false
-    private var mScale: RectF? = null
-    private var mTemp: Rect? = null
+    private  var mScale: RectF = RectF()
+    private  var mTemp: Rect = Rect()
 
     init {
         val originWidth = drawable.intrinsicWidth.toFloat()
@@ -44,7 +46,7 @@ class PreciselyClipDrawable(
         } else {
             mClip = true
             mScale = RectF()
-            mScale!!.set(
+            mScale.set(
                 MathUtils.clamp(offsetX / originWidth, 0.0f, 1.0f),
                 MathUtils.clamp(offsetY / originHeight, 0.0f, 1.0f),
                 MathUtils.clamp((offsetX + width) / originWidth, 0.0f, 1.0f),
@@ -55,28 +57,25 @@ class PreciselyClipDrawable(
     }
 
     override fun onBoundsChange(bounds: Rect) {
-        if (mClip) {
-            if (!mScale!!.isEmpty) {
-                mTemp!!.left = ((mScale!!.left * bounds.right - mScale!!.right * bounds.left) /
-                        (mScale!!.left * (1 - mScale!!.right) - mScale!!.right * (1 - mScale!!.left))).toInt()
-                mTemp!!.right =
-                    (((1 - mScale!!.right) * bounds.left - (1 - mScale!!.left) * bounds.right) /
-                            (mScale!!.left * (1 - mScale!!.right) - mScale!!.right * (1 - mScale!!.left))).toInt()
-                mTemp!!.top = ((mScale!!.top * bounds.bottom - mScale!!.bottom * bounds.top) /
-                        (mScale!!.top * (1 - mScale!!.bottom) - mScale!!.bottom * (1 - mScale!!.top))).toInt()
-                mTemp!!.bottom =
-                    (((1 - mScale!!.bottom) * bounds.top - (1 - mScale!!.top) * bounds.bottom) /
-                            (mScale!!.top * (1 - mScale!!.bottom) - mScale!!.bottom * (1 - mScale!!.top))).toInt()
-                super.onBoundsChange(mTemp!!)
-            }
-        } else {
-            super.onBoundsChange(bounds)
+        if (mClip && !mScale.isEmpty) {
+            mTemp.left = ((mScale.left * bounds.right - mScale.right * bounds.left) /
+                    (mScale.left * (1 - mScale.right) - mScale.right * (1 - mScale.left))).toInt()
+            mTemp.right = (((1 - mScale.right) * bounds.left - (1 - mScale.left) * bounds.right) /
+                    (mScale.left * (1 - mScale.right) - mScale.right * (1 - mScale.left))).toInt()
+            mTemp.top = ((mScale.top * bounds.bottom - mScale.bottom * bounds.top) /
+                    (mScale.top * (1 - mScale.bottom) - mScale.bottom * (1 - mScale.top))).toInt()
+            mTemp.bottom = (((1 - mScale.bottom) * bounds.top - (1 - mScale.top) * bounds.bottom) /
+                    (mScale.top * (1 - mScale.bottom) - mScale.bottom * (1 - mScale.top))).toInt()
+            super.onBoundsChange(mTemp)
+            return
         }
+        super.onBoundsChange(bounds)
     }
+
 
     override fun getIntrinsicWidth(): Int {
         return if (mClip) {
-            (super.getIntrinsicWidth() * mScale!!.width()).toInt()
+            (super.getIntrinsicWidth() * mScale.width()).toInt()
         } else {
             super.getIntrinsicWidth()
         }
@@ -84,7 +83,7 @@ class PreciselyClipDrawable(
 
     override fun getIntrinsicHeight(): Int {
         return if (mClip) {
-            (super.getIntrinsicHeight() * mScale!!.height()).toInt()
+            (super.getIntrinsicHeight() * mScale.height()).toInt()
         } else {
             super.getIntrinsicHeight()
         }
@@ -92,7 +91,7 @@ class PreciselyClipDrawable(
 
     override fun draw(canvas: Canvas) {
         if (mClip) {
-            if (!mScale!!.isEmpty) {
+            if (!mScale.isEmpty) {
                 val saveCount = canvas.save()
                 canvas.clipRect(bounds)
                 super.draw(canvas)

@@ -2,10 +2,10 @@ package com.hippo.ehviewer.client.parser;
 
 import android.util.Log;
 
+import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.hippo.ehviewer.client.data.HomeDetail;
 import com.hippo.ehviewer.client.exception.EhException;
-import com.hippo.yorozuya.NumberUtils;
-import com.microsoft.appcenter.crashes.Crashes;
+import com.hippo.lib.yorozuya.NumberUtils;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -18,6 +18,7 @@ import java.util.regex.Pattern;
 public class EhHomeParser {
     private static final String TAG = "EhHomeParser";
     private static final Pattern PATTERN_IMAGE_LIMIT = Pattern.compile("<p>You are currently at <strong>(\\d+)</strong> towards a limit of <strong>(\\d+)</strong>.</p>.+?<p>Reset Cost: <strong>(\\d+)</strong> GP</p>", Pattern.DOTALL);
+    private static final Pattern PATTERN_IMAGE_LIMIT_NEW = Pattern.compile("<p>You are currently at <strong>(.+?)</strong> towards your account limit of <strong>(.+?)</strong>.</p>\n<p>You can reset your image quota by spending <strong>(.+?)</strong> GP.</p>", Pattern.DOTALL);
 
     private static final String HOME_BOX = "homebox";
 
@@ -47,7 +48,7 @@ public class EhHomeParser {
             parseModerationPower(moderationPower, homeDetail);
         } catch (Exception e ) {
             Log.e(TAG, "数据结构错误");
-            Crashes.trackError(e);
+            FirebaseCrashlytics.getInstance().recordException(e);
         }
 
         return homeDetail;
@@ -80,16 +81,29 @@ public class EhHomeParser {
     }
 
     private static void parseImageLimits(Element imageLimits, HomeDetail homeDetail) {
-        Matcher matcher = PATTERN_IMAGE_LIMIT.matcher(imageLimits.html());
+        String imageListsString = imageLimits.html();
+        Matcher matcher = PATTERN_IMAGE_LIMIT_NEW.matcher(imageListsString);
         if (!matcher.find()) {
-            return;
+            matcher = PATTERN_IMAGE_LIMIT.matcher(imageListsString);
+            if (!matcher.find()){
+                return;
+            }
         }
-        long used = NumberUtils.parseLongSafely(matcher.group(1), -1L);
-        long total = NumberUtils.parseLongSafely(matcher.group(2), -1L);
-        long resetCost = NumberUtils.parseLongSafely(matcher.group(3), -1L);
+
+        long used = NumberUtils.parseLongSafely(getGroupIntString(1,matcher), -1L);
+        long total = NumberUtils.parseLongSafely(getGroupIntString(2,matcher), -1L);
+        long resetCost = NumberUtils.parseLongSafely(getGroupIntString(3,matcher), -1L);
         homeDetail.setUsed(used);
         homeDetail.setTotal(total);
         homeDetail.setResetCost(resetCost);
+    }
+
+    private static String getGroupIntString(int index,Matcher matcher){
+        String groupS = matcher.group(index);
+        if (groupS!=null){
+            return groupS.replaceAll(",","");
+        }
+        return "0";
     }
 
 }

@@ -16,6 +16,8 @@
 
 package com.hippo.ehviewer.client;
 
+import static com.hippo.ehviewer.client.data.ListUrlBuilder.MODE_NORMAL;
+
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
@@ -27,6 +29,7 @@ import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.GetText;
 import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
+import com.hippo.ehviewer.client.data.ArchiverData;
 import com.hippo.ehviewer.client.data.EhNewsDetail;
 import com.hippo.ehviewer.client.data.EhTopListDetail;
 import com.hippo.ehviewer.client.data.GalleryCommentList;
@@ -61,7 +64,8 @@ import com.hippo.ehviewer.client.parser.TorrentParser;
 import com.hippo.ehviewer.client.parser.VoteCommentParser;
 import com.hippo.network.StatusCodeException;
 import com.hippo.util.ExceptionUtils;
-import com.hippo.yorozuya.AssertUtils;
+import com.hippo.util.FileUtils;
+import com.hippo.lib.yorozuya.AssertUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -137,6 +141,9 @@ public class EhEngine {
                 }
                 throw new EhException(GetText.getString(R.string.error_parse_error));
             }
+        }
+        if (e instanceof EhException){
+            throw e;
         }
 
         if (code >= 400) {
@@ -251,7 +258,7 @@ public class EhEngine {
     }
 
     public static GalleryListParser.Result getGalleryList(@Nullable EhClient.Task task, OkHttpClient okHttpClient,
-                                                          String url) throws Throwable {
+                                                          String url,int mode) throws Throwable {
         String referer = EhUrl.getReferer();
         Log.d(TAG, url);
         Request request = new EhRequestBuilder(url, referer).build();
@@ -272,7 +279,7 @@ public class EhEngine {
             headers = response.headers();
             assert response.body() != null;
             body = response.body().string();
-            result = GalleryListParser.parse(body);
+            result = GalleryListParser.parse(body,mode);
         } catch (Throwable e) {
             ExceptionUtils.throwIfFatal(e);
             throwException(call, code, headers, body, e);
@@ -343,7 +350,7 @@ public class EhEngine {
             throw e;
         }
     }
-
+//    https://e-hentai.org/g/2914213/fc8bce61d9/
     public static GalleryDetail getGalleryDetail(@Nullable EhClient.Task task, OkHttpClient okHttpClient,
                                                  String url) throws Throwable {
         String referer = EhUrl.getReferer();
@@ -533,6 +540,33 @@ public class EhEngine {
         }
     }
 
+    public static FavoritesParser.Result getAllFavorites(OkHttpClient okHttpClient, String url) throws Throwable {
+        String referer = EhUrl.getReferer();
+        Log.d(TAG, url);
+        Request request = new EhRequestBuilder(url, referer).build();
+        Call call = okHttpClient.newCall(request);
+
+        String body = null;
+        Headers headers = null;
+        FavoritesParser.Result result;
+        int code = -1;
+
+        try {
+            Response response = call.execute();
+            code = response.code();
+            headers = response.headers();
+            assert response.body() != null;
+            body = response.body().string();
+            result = FavoritesParser.parse(body);
+        } catch (Throwable e) {
+            ExceptionUtils.throwIfFatal(e);
+            throwException(call, code, headers, body, e);
+            throw e;
+        }
+
+        return result;
+    }
+
     public static FavoritesParser.Result getFavorites(@Nullable EhClient.Task task, OkHttpClient okHttpClient,
                                                       String url, boolean callApi) throws Throwable {
         String referer = EhUrl.getReferer();
@@ -561,9 +595,7 @@ public class EhEngine {
             throwException(call, code, headers, body, e);
             throw e;
         }
-
         fillGalleryList(task, okHttpClient, result.galleryInfoList, url, false);
-
         return result;
     }
 
@@ -777,12 +809,44 @@ public class EhEngine {
         return result;
     }
 
+    public static ArchiverData getArchiver(@Nullable EhClient.Task task, OkHttpClient okHttpClient,
+                                           String url, long gid, String token) throws Throwable {
+        String referer = EhUrl.getGalleryDetailUrl(gid, token);
+        Log.d(TAG, url);
+        Request request = new EhRequestBuilder(url, referer).build();
+        Call call = okHttpClient.newCall(request);
+
+        // Put call
+        if (null != task) {
+            task.setCall(call);
+        }
+
+        String body = null;
+        Headers headers = null;
+        ArchiverData result;
+        int code = -1;
+        try {
+            Response response = call.execute();
+            code = response.code();
+            headers = response.headers();
+            assert response.body() != null;
+            body = response.body().string();
+            result = ArchiveParser.parseArchiver(body);
+        } catch (Throwable e) {
+            ExceptionUtils.throwIfFatal(e);
+            throwException(call, code, headers, body, e);
+            throw e;
+        }
+
+        return result;
+    }
+
     public static Void downloadArchive(@Nullable EhClient.Task task, OkHttpClient okHttpClient,
                                        long gid, String token, String or, String res) throws Throwable {
-        if (or == null || or.length() == 0) {
+        if (or == null) {
             throw new EhException("Invalid form param or: " + or);
         }
-        if (res == null || res.length() == 0) {
+        if (res == null || res.isEmpty()) {
             throw new EhException("Invalid res: " + res);
         }
         FormBody.Builder builder = new FormBody.Builder();
@@ -823,6 +887,65 @@ public class EhEngine {
         }
 
         return null;
+    }
+
+    public static String downloadArchiver(
+            @Nullable EhClient.Task task, OkHttpClient okHttpClient, String url, String referer, String dltype, String dlcheck)
+            throws Throwable {
+        if (url == null || url.length() == 0) {
+            throw new EhException("Invalid form param url: " + url);
+        }
+        if (referer == null || referer.length() == 0) {
+            throw new EhException("Invalid form param referer: " + referer);
+        }
+
+        String origin = EhUrl.getOrigin();
+        FormBody.Builder builder = new FormBody.Builder();
+        builder.add("dltype", dltype);
+        builder.add("dlcheck", dlcheck);
+        Log.d(TAG, url);
+        Request request = new EhRequestBuilder(url, referer, origin)
+                .post(builder.build())
+                .build();
+        Call call = okHttpClient.newCall(request);
+
+        // Put call
+        if (null != task) {
+            task.setCall(call);
+        }
+
+        String body = null;
+        Headers headers = null;
+        int code = -1;
+        try {
+            Response response = call.execute();
+            code = response.code();
+            headers = response.headers();
+            assert response.body() != null;
+            body = response.body().string();
+            Pattern pattern = Pattern.compile("document.location = \"(.*)\"");
+            Matcher m = pattern.matcher(body);
+            if (!m.find()) {
+                return null;
+            }
+            String continueUrl = m.group(1);
+//            获取跳转链接
+            Request requestContinue = new EhRequestBuilder(continueUrl, origin, null)
+                    .build();
+            Call callContinue = okHttpClient.newCall(requestContinue);
+            Response responseC = callContinue.execute();
+            if (responseC.body() == null) {
+                return null;
+            }
+            body = responseC.body().string();
+            String downloadPath = ArchiveParser.parseArchiverDownloadUrl(body);
+            String downloadUrl = "https://" + responseC.request().url().host() + downloadPath;
+            return downloadUrl;
+        } catch (Throwable e) {
+            ExceptionUtils.throwIfFatal(e);
+            throwException(call, code, headers, body, e);
+            return null;
+        }
     }
 
     private static ProfileParser.Result getProfileInternal(@Nullable EhClient.Task task,
@@ -929,38 +1052,46 @@ public class EhEngine {
      */
     public static GalleryListParser.Result imageSearch(@Nullable EhClient.Task task, OkHttpClient okHttpClient,
                                                        File image, boolean uss, boolean osc, boolean se) throws Throwable {
+        String imageName = image.getName();
+        String fileName;
+        File imageFile;
+        boolean shouldDelete = false;
+        if (imageName.contains(".")) {
+            fileName = imageName;
+            imageFile = image;
+        } else {
+            fileName = imageName + ".jpg";
+            imageFile = new File(image.getParent()+"/"+fileName);
+            FileUtils.copyFile(image,imageFile);
+            shouldDelete = true;
+        }
         MultipartBody.Builder builder = new MultipartBody.Builder();
         builder.setType(MultipartBody.FORM);
         builder.addPart(
-                Headers.of("Content-Disposition", "form-data; name=\"sfile\"; filename=\"a.jpg\""),
-//                RequestBody.create(image, MEDIA_TYPE_JPEG)
-                RequestBody.create(MEDIA_TYPE_JPEG, image)
+                Headers.of("Content-Disposition", "form-data; name=\"sfile\"; filename=\"" + fileName + "\"; size=\"40\""),
+                RequestBody.create(MediaType.parse("file"), imageFile)
         );
         if (uss) {
             builder.addPart(
                     Headers.of("Content-Disposition", "form-data; name=\"fs_similar\""),
-//                    RequestBody.create("on", null)
                     RequestBody.create(null, "on")
             );
         }
         if (osc) {
             builder.addPart(
                     Headers.of("Content-Disposition", "form-data; name=\"fs_covers\""),
-//                    RequestBody.create("on", null)
                     RequestBody.create(null, "on")
             );
         }
         if (se) {
             builder.addPart(
                     Headers.of("Content-Disposition", "form-data; name=\"fs_exp\""),
-//                    RequestBody.create("on", null)
                     RequestBody.create(null, "on")
             );
         }
         builder.addPart(
                 Headers.of("Content-Disposition", "form-data; name=\"f_sfile\""),
-//                RequestBody.create("File Search", null)
-                RequestBody.create(null, "File Search")
+                RequestBody.create(MediaType.parse("submit"), "File Search")
         );
         String url = EhUrl.getImageSearchUrl();
         String referer = EhUrl.getReferer() + '/';
@@ -1000,13 +1131,18 @@ public class EhEngine {
             headers = response.headers();
             assert response.body() != null;
             body = response.body().string();
-            result = GalleryListParser.parse(body);
+            result = GalleryListParser.parse(body, MODE_NORMAL);
         } catch (Throwable e) {
             ExceptionUtils.throwIfFatal(e);
             throwException(call, code, headers, body, e);
+            if (shouldDelete){
+                imageFile.delete();
+            }
             throw e;
         }
-
+        if (shouldDelete){
+            imageFile.delete();
+        }
         fillGalleryList(task, okHttpClient, result.galleryInfoList, url, true);
 
         return result;
@@ -1253,7 +1389,8 @@ public class EhEngine {
         String url = EhUrl.getHomeUrl();
         Log.d(TAG, url);
         FormBody formBody = builder.build();
-        Request  request = new EhRequestBuilder(url, referer).post(formBody).build();;
+        Request request = new EhRequestBuilder(url, referer).post(formBody).build();
+        ;
         Call call = okHttpClient.newCall(request);
         // Put call
         if (null != task) {

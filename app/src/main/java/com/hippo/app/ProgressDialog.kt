@@ -46,11 +46,13 @@ import java.text.NumberFormat
 class ProgressDialog : AlertDialog {
     private var mProgress: ProgressBar? = null
     private var mMessageView: TextView? = null
-    private var mProgressStyle = STYLE_SPINNER
+
+    private var mProgressStyle: Int = STYLE_SPINNER
     private var mProgressNumber: TextView? = null
     private var mProgressNumberFormat: String? = null
     private var mProgressPercent: TextView? = null
     private var mProgressPercentFormat: NumberFormat? = null
+
     private var mMax = 0
     private var mProgressVal = 0
     private var mSecondaryProgressVal = 0
@@ -60,30 +62,31 @@ class ProgressDialog : AlertDialog {
     private var mIndeterminateDrawable: Drawable? = null
     private var mMessage: CharSequence? = null
     private var mIndeterminate = false
+
     private var mHasStarted = false
     private var mViewUpdateHandler: Handler? = null
 
-    constructor(context: Context?) : super(context!!) {
+    constructor(context: Context) : super(context) {
         initFormats()
     }
 
-    constructor(context: Context?, theme: Int) : super(context!!, theme) {
+    constructor(context: Context, theme: Int) : super(context, theme) {
         initFormats()
     }
 
     private fun initFormats() {
         mProgressNumberFormat = "%1d/%2d"
         mProgressPercentFormat = NumberFormat.getPercentInstance()
-        mProgressPercentFormat!!.maximumFractionDigits = 0
+        mProgressPercentFormat!!.setMaximumFractionDigits(0)
     }
 
-    override fun onCreate(savedInstanceState: Bundle) {
+    override fun onCreate(savedInstanceState: Bundle?) {
         val inflater = LayoutInflater.from(context)
         if (mProgressStyle == STYLE_HORIZONTAL) {
-
             /* Use a separate handler to update the text views as they
              * must be updated on the same thread that created them.
              */
+
             mViewUpdateHandler = object : Handler(Looper.getMainLooper()) {
                 override fun handleMessage(msg: Message) {
                     super.handleMessage(msg)
@@ -92,7 +95,7 @@ class ProgressDialog : AlertDialog {
                     val progress = mProgress!!.progress
                     val max = mProgress!!.max
                     if (mProgressNumberFormat != null) {
-                        val format: String = mProgressNumberFormat.toString()
+                        val format = mProgressNumberFormat!!
                         mProgressNumber!!.text = String.format(format, progress, max)
                     } else {
                         mProgressNumber!!.text = ""
@@ -111,24 +114,24 @@ class ProgressDialog : AlertDialog {
                 }
             }
             val view = inflater.inflate(R.layout.alert_dialog_progress_material, null)
-            mProgress = view.findViewById<View>(R.id.progress) as ProgressBar
-            mProgressNumber = view.findViewById<View>(R.id.progress_number) as TextView
-            mProgressPercent = view.findViewById<View>(R.id.progress_percent) as TextView
+            mProgress = view.findViewById<View?>(R.id.progress) as ProgressBar?
+            mProgressNumber = view.findViewById<View?>(R.id.progress_number) as TextView
+            mProgressPercent = view.findViewById<View?>(R.id.progress_percent) as TextView
             setView(view)
         } else {
             val view = inflater.inflate(R.layout.progress_dialog_material, null)
-            mProgress = view.findViewById<View>(R.id.progress) as ProgressBar
-            mMessageView = view.findViewById<View>(R.id.message) as TextView
+            mProgress = view.findViewById<View?>(R.id.progress) as ProgressBar?
+            mMessageView = view.findViewById<View?>(R.id.message) as TextView
             setView(view)
         }
         if (mMax > 0) {
-            max = mMax
+            setMax(mMax)
         }
         if (mProgressVal > 0) {
-            progress = mProgressVal
+            setProgress(mProgressVal)
         }
         if (mSecondaryProgressVal > 0) {
-            secondaryProgress = mSecondaryProgressVal
+            setSecondaryProgress(mSecondaryProgressVal)
         }
         if (mIncrementBy > 0) {
             incrementProgressBy(mIncrementBy)
@@ -143,9 +146,9 @@ class ProgressDialog : AlertDialog {
             setIndeterminateDrawable(mIndeterminateDrawable)
         }
         if (mMessage != null) {
-            setMessage(mMessage!!)
+            setMessage(mMessage)
         }
-        isIndeterminate = mIndeterminate
+        setIndeterminate(mIndeterminate)
         onProgressChanged()
         super.onCreate(savedInstanceState)
     }
@@ -160,42 +163,53 @@ class ProgressDialog : AlertDialog {
         mHasStarted = false
     }
 
-    var progress: Int
-        get() = if (mProgress != null) {
-            mProgress!!.progress
-        } else mProgressVal
-        set(value) {
-            if (mHasStarted) {
-                mProgress!!.progress = value
-                onProgressChanged()
-            } else {
-                mProgressVal = value
-            }
+    fun setProgress(value: Int) {
+        if (mHasStarted) {
+            mProgress!!.progress = value
+            onProgressChanged()
+        } else {
+            mProgressVal = value
         }
-    var secondaryProgress: Int
-        get() = if (mProgress != null) {
-            mProgress!!.secondaryProgress
-        } else mSecondaryProgressVal
-        set(secondaryProgress) {
-            if (mProgress != null) {
-                mProgress!!.secondaryProgress = secondaryProgress
-                onProgressChanged()
-            } else {
-                mSecondaryProgressVal = secondaryProgress
-            }
+    }
+
+    fun setSecondaryProgress(secondaryProgress: Int) {
+        if (mProgress != null) {
+            mProgress!!.setSecondaryProgress(secondaryProgress)
+            onProgressChanged()
+        } else {
+            mSecondaryProgressVal = secondaryProgress
         }
-    var max: Int
-        get() = if (mProgress != null) {
-            mProgress!!.max
-        } else mMax
-        set(max) {
-            if (mProgress != null) {
-                mProgress!!.max = max
-                onProgressChanged()
-            } else {
-                mMax = max
-            }
+    }
+
+    fun getProgress(): Int {
+        if (mProgress != null) {
+            return mProgress!!.progress
         }
+        return mProgressVal
+    }
+
+    fun getSecondaryProgress(): Int {
+        if (mProgress != null) {
+            return mProgress!!.secondaryProgress
+        }
+        return mSecondaryProgressVal
+    }
+
+    fun getMax(): Int {
+        if (mProgress != null) {
+            return mProgress!!.max
+        }
+        return mMax
+    }
+
+    fun setMax(max: Int) {
+        if (mProgress != null) {
+            mProgress!!.setMax(max)
+            onProgressChanged()
+        } else {
+            mMax = max
+        }
+    }
 
     fun incrementProgressBy(diff: Int) {
         if (mProgress != null) {
@@ -231,19 +245,22 @@ class ProgressDialog : AlertDialog {
         }
     }
 
-    var isIndeterminate: Boolean
-        get() = if (mProgress != null) {
-            mProgress!!.isIndeterminate
-        } else mIndeterminate
-        set(indeterminate) {
-            if (mProgress != null) {
-                mProgress!!.isIndeterminate = indeterminate
-            } else {
-                mIndeterminate = indeterminate
-            }
+    fun setIndeterminate(indeterminate: Boolean) {
+        if (mProgress != null) {
+            mProgress!!.isIndeterminate = indeterminate
+        } else {
+            mIndeterminate = indeterminate
         }
+    }
 
-    override fun setMessage(message: CharSequence) {
+    fun isIndeterminate(): Boolean {
+        if (mProgress != null) {
+            return mProgress!!.isIndeterminate
+        }
+        return mIndeterminate
+    }
+
+    override fun setMessage(message: CharSequence?) {
         if (mProgress != null) {
             if (mProgressStyle == STYLE_HORIZONTAL) {
                 super.setMessage(message)
@@ -297,21 +314,22 @@ class ProgressDialog : AlertDialog {
         /** Creates a ProgressDialog with a circular, spinning progress
          * bar. This is the default.
          */
-        const val STYLE_SPINNER = 0
+        const val STYLE_SPINNER: Int = 0
 
         /** Creates a ProgressDialog with a horizontal progress bar.
          */
-        const val STYLE_HORIZONTAL = 1
+        const val STYLE_HORIZONTAL: Int = 1
+
         @JvmOverloads
         fun show(
-            context: Context?, title: CharSequence?,
-            message: CharSequence, indeterminate: Boolean = false,
+            context: Context, title: CharSequence?,
+            message: CharSequence?, indeterminate: Boolean = false,
             cancelable: Boolean = false, cancelListener: DialogInterface.OnCancelListener? = null
         ): ProgressDialog {
             val dialog = ProgressDialog(context)
             dialog.setTitle(title)
             dialog.setMessage(message)
-            dialog.isIndeterminate = indeterminate
+            dialog.setIndeterminate(indeterminate)
             dialog.setCancelable(cancelable)
             dialog.setOnCancelListener(cancelListener)
             dialog.show()

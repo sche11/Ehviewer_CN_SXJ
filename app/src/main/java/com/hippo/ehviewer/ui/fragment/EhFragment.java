@@ -19,8 +19,10 @@ package com.hippo.ehviewer.ui.fragment;
 import android.app.Activity;
 import android.os.Build;
 import android.os.Bundle;
-import android.preference.Preference;
-import android.preference.PreferenceFragment;
+
+import androidx.annotation.Nullable;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceFragmentCompat;
 
 import com.hippo.ehviewer.EhApplication;
 import com.hippo.ehviewer.EhDB;
@@ -28,12 +30,11 @@ import com.hippo.ehviewer.R;
 import com.hippo.ehviewer.Settings;
 import com.hippo.ehviewer.client.EhTagDatabase;
 
-public class EhFragment extends PreferenceFragment
+public class EhFragment extends BasePreferenceFragmentCompat
         implements Preference.OnPreferenceChangeListener {
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         addPreferencesFromResource(R.xml.eh_settings);
 
         Preference theme = findPreference(Settings.KEY_THEME);
@@ -56,10 +57,6 @@ public class EhFragment extends PreferenceFragment
         historyInfoSize.setOnPreferenceChangeListener(this);
         showTagTranslations.setOnPreferenceChangeListener(this);
         showGalleryComment.setOnPreferenceChangeListener(this);
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            getPreferenceScreen().removePreference(applyNavBarThemeColor);
-        }
 
         if (!EhTagDatabase.isPossible(getActivity())) {
             getPreferenceScreen().removePreference(showTagTranslations);
@@ -89,7 +86,20 @@ public class EhFragment extends PreferenceFragment
             getActivity().setResult(Activity.RESULT_OK);
             return true;
         } else if (Settings.KEY_SHOW_TAG_TRANSLATIONS.equals(key)) {
-            EhDB.MAX_HISTORY_COUNT = (int) newValue;
+            if (Boolean.TRUE.equals(newValue)) {
+                EhTagDatabase.update(getActivity());
+            }
+            return true;
+        } else if (Settings.KEY_HISTORY_INFO_SIZE.equals(key)) {
+            try{
+                int num = Integer.parseInt(newValue.toString());
+                if (num<Settings.DEFAULT_HISTORY_INFO_SIZE){
+                    num = Settings.DEFAULT_HISTORY_INFO_SIZE;
+                }
+                EhDB.MAX_HISTORY_COUNT = num;
+            }catch (NumberFormatException e){
+                EhDB.MAX_HISTORY_COUNT = Settings.DEFAULT_HISTORY_INFO_SIZE;
+            }
             return true;
         } else if (Settings.KEY_SHOW_GALLERY_COMMENT.equals(key)) {
             getActivity().setResult(Activity.RESULT_OK);

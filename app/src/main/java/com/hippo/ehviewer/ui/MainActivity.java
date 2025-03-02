@@ -31,6 +31,7 @@ import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.PersistableBundle;
 import android.text.TextUtils;
@@ -47,7 +48,6 @@ import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
-import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AlertDialog;
 
 import com.google.android.material.navigation.NavigationView;
@@ -72,7 +72,7 @@ import com.hippo.ehviewer.ui.scene.BaseScene;
 import com.hippo.ehviewer.ui.scene.CookieSignInScene;
 import com.hippo.ehviewer.ui.scene.download.DownloadLabelsScene;
 import com.hippo.ehviewer.ui.scene.download.DownloadsScene;
-import com.hippo.ehviewer.ui.scene.FavoritesScene;
+import com.hippo.ehviewer.ui.scene.gallery.list.FavoritesScene;
 import com.hippo.ehviewer.ui.scene.GalleryCommentsScene;
 import com.hippo.ehviewer.ui.scene.gallery.detail.GalleryDetailScene;
 import com.hippo.ehviewer.ui.scene.GalleryInfoScene;
@@ -89,6 +89,8 @@ import com.hippo.ehviewer.ui.scene.SignInScene;
 import com.hippo.ehviewer.ui.scene.SolidScene;
 import com.hippo.ehviewer.ui.scene.WarningScene;
 import com.hippo.ehviewer.ui.scene.WebViewSignInScene;
+import com.hippo.ehviewer.ui.splash.SplashActivity;
+import com.hippo.ehviewer.updater.AppUpdater;
 import com.hippo.ehviewer.widget.EhDrawerLayout;
 import com.hippo.ehviewer.widget.LimitsCountView;
 import com.hippo.io.UniFileInputStreamPipe;
@@ -101,10 +103,10 @@ import com.hippo.util.BitmapUtils;
 import com.hippo.util.GifHandler;
 import com.hippo.util.PermissionRequester;
 import com.hippo.widget.AvatarImageView;
-import com.hippo.yorozuya.IOUtils;
-import com.hippo.yorozuya.ResourcesUtils;
-import com.hippo.yorozuya.SimpleHandler;
-import com.hippo.yorozuya.ViewUtils;
+import com.hippo.lib.yorozuya.IOUtils;
+import com.hippo.lib.yorozuya.ResourcesUtils;
+import com.hippo.lib.yorozuya.SimpleHandler;
+import com.hippo.lib.yorozuya.ViewUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -152,8 +154,7 @@ public final class MainActivity extends StageActivity
 
     Bitmap backgroundBit;
 
-    @SuppressLint("HandlerLeak")
-    Handler handlerB = new Handler() {
+    Handler handlerB = new Handler(Looper.getMainLooper()) {
         @Override
         public void handleMessage(Message msg) {
             int mNextFrame = gifHandler.updateFrame(backgroundBit);
@@ -229,27 +230,27 @@ public final class MainActivity extends StageActivity
             if (!TextUtils.isEmpty(Settings.getSecurity())) {
                 Bundle newArgs = new Bundle();
                 newArgs.putString(SecurityScene.KEY_TARGET_SCENE, announcer.getClazz().getName());
-                newArgs.putBundle(SecurityScene.KEY_TARGET_ARGS, announcer.args);
+                newArgs.putBundle(SecurityScene.KEY_TARGET_ARGS, announcer.getArgs());
                 return new Announcer(SecurityScene.class).setArgs(newArgs);
             } else if (Settings.getShowWarning()) {
                 Bundle newArgs = new Bundle();
                 newArgs.putString(WarningScene.KEY_TARGET_SCENE, announcer.getClazz().getName());
-                newArgs.putBundle(WarningScene.KEY_TARGET_ARGS, announcer.args);
+                newArgs.putBundle(WarningScene.KEY_TARGET_ARGS, announcer.getArgs());
                 return new Announcer(WarningScene.class).setArgs(newArgs);
             } else if (Settings.getAskAnalytics()) {
                 Bundle newArgs = new Bundle();
                 newArgs.putString(AnalyticsScene.KEY_TARGET_SCENE, announcer.getClazz().getName());
-                newArgs.putBundle(AnalyticsScene.KEY_TARGET_ARGS, announcer.args);
+                newArgs.putBundle(AnalyticsScene.KEY_TARGET_ARGS, announcer.getArgs());
                 return new Announcer(AnalyticsScene.class).setArgs(newArgs);
             } else if (EhUtils.needSignedIn(this)) {
                 Bundle newArgs = new Bundle();
                 newArgs.putString(SignInScene.KEY_TARGET_SCENE, announcer.getClazz().getName());
-                newArgs.putBundle(SignInScene.KEY_TARGET_ARGS, announcer.args);
+                newArgs.putBundle(SignInScene.KEY_TARGET_ARGS, announcer.getArgs());
                 return new Announcer(SignInScene.class).setArgs(newArgs);
             } else if (Settings.getSelectSite()) {
                 Bundle newArgs = new Bundle();
                 newArgs.putString(SelectSiteScene.KEY_TARGET_SCENE, announcer.getClazz().getName());
-                newArgs.putBundle(SelectSiteScene.KEY_TARGET_ARGS, announcer.args);
+                newArgs.putBundle(SelectSiteScene.KEY_TARGET_ARGS, announcer.getArgs());
                 return new Announcer(SelectSiteScene.class).setArgs(newArgs);
             }
         }
@@ -371,6 +372,13 @@ public final class MainActivity extends StageActivity
 
     @Override
     protected void onCreate2(@Nullable Bundle savedInstanceState) {
+        Intent intent = getIntent();
+        if (intent != null) {
+            boolean res = intent.getBooleanExtra(SplashActivity.KEY_RESTART,false);
+            if (res){
+                savedInstanceState = null;
+            }
+        }
         setContentView(R.layout.activity_main);
 
         mDrawerLayout = (EhDrawerLayout) ViewUtils.$$(this, R.id.draw_view);
@@ -426,8 +434,15 @@ public final class MainActivity extends StageActivity
         } else {
             onRestore(savedInstanceState);
         }
-
         EhTagDatabase.update(this);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if (!Settings.getCloseAutoUpdate()){
+            AppUpdater.update(this,false);
+        }
     }
 
     private void initUserImage() {
@@ -549,7 +564,7 @@ public final class MainActivity extends StageActivity
 
     @Override
     public void onSaveInstanceState(Bundle outState, PersistableBundle outPersistentState) {
-        super.onSaveInstanceState(outState, outPersistentState);
+//        super.onSaveInstanceState(outState, outPersistentState);
         outState.putInt(KEY_NAV_CHECKED_ITEM, mNavCheckedItem);
     }
 
@@ -595,17 +610,20 @@ public final class MainActivity extends StageActivity
 
     private String getTextFromClipboard() {
         ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        if (clipboard != null) {
-            ClipData clip = clipboard.getPrimaryClip();
-            if (clip != null && clip.getItemCount() > 0 && clip.getItemAt(0).getText() != null) {
-                return clip.getItemAt(0).getText().toString();
+        try {
+            if (clipboard != null) {
+                ClipData clip = clipboard.getPrimaryClip();
+                if (clip != null && clip.getItemCount() > 0 && clip.getItemAt(0).getText() != null) {
+                    return clip.getItemAt(0).getText().toString();
+                }
             }
+        } catch (RuntimeException ignore) {
         }
         return null;
     }
 
     @Nullable
-    private Announcer createAnnouncerFromClipboardUrl(String url) {
+    public static Announcer createAnnouncerFromClipboardUrl(String url) {
         GalleryDetailUrlParser.Result result1 = GalleryDetailUrlParser.parse(url, false);
         if (result1 != null) {
             Bundle args = new Bundle();

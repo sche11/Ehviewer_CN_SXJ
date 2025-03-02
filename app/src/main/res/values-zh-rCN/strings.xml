@@ -104,7 +104,7 @@
     <string name="app_waring">本应用中内容来自互联网，部分内容可能对您的生理及心理造成难以恢复的伤害。本应用作者不会对由本应用造成的任何后果负责。\n\n未成年人应在监护人指导下使用本应用。</string>
     <string name="error_username_cannot_empty">用户名不可为空</string>
     <string name="error_password_cannot_empty">密码不可为空</string>
-    <string name="skip_signing_in">跳过登录</string>
+    <string name="guest_mode">游客模式</string>
     <string name="sign_in_failed">登录失败</string>
     <string name="sign_in_failed_tip">若持续出错，请尝试“通过网页登录”或“通过 Cookie 登录”。</string>
     <string name="sign_in_failed_plain">这可能是网站更新导致的，也有可能是发生了奇怪的事情。您可以选择在登录按钮下方通过网页登录或者输入 cookie，或者跳过登录。跳过登录可能导致无法正常使用应用。如果你已经在 0.6.x 版登录过了，请优先尝试选择“通过 Cookie 登录”。</string>
@@ -127,6 +127,8 @@
     <!-- Update -->
     <string name="new_version">新版本</string>
     <string name="update">更新</string>
+    <string name="update_fail">检查更新失败</string>
+    <string name="update_fail_info">点击 是 跳转至Github主页</string>
     <string name="update_to">更新至</string>
     <string name="update_plain">版本：%1$s\n大小：%2$s\n\n%3$s</string>
     <string name="update_to_date">EhViewer 已是最新版本</string>
@@ -468,8 +470,8 @@
     <string name="settings_eh_sign_out_tip">已退出登录，重启应用以便再次登录</string>
     <string name="settings_eh_identity_cookies">身份 Cookie</string>
     <string name="settings_eh_identity_cookies_summary">可用于登录</string>
-    <string name="settings_eh_lock_cookies_igneous">锁定Cookie igneous字段</string>
-    <string name="settings_eh_lock_cookies_igneous_summary">可能会导致账号异常，非特殊情况，不建议开启。</string>
+<!--    <string name="settings_eh_lock_cookies_igneous">锁定Cookie igneous字段</string>-->
+<!--    <string name="settings_eh_lock_cookies_igneous_summary">可能会导致账号异常，非特殊情况，不建议开启。</string>-->
     <string name="settings_eh_identity_cookies_signed">身份 Cookie 可用于登录该账号。&lt;br&gt;&lt;b&gt;注意数据安全&lt;/b&gt;&lt;br&gt;&lt;br&gt;%s</string>
     <string name="settings_eh_identity_cookies_tourist">未登录</string>
     <string name="settings_eh_identity_cookies_copy">复制</string>
@@ -796,8 +798,8 @@
     <string name="no_archives">没有压缩包</string>
     <string name="download_archive_started">开始下载压缩包</string>
     <string name="download_archive_failure">无法下载压缩包</string>
-    <string name="archive">压缩包</string>
-    <string name="download_archive_failure_no_hath">下载压缩包需要 H@H 客户端</string>
+    <string name="h_h">H@H</string>
+    <string name="download_h_h_failure_no_hath">下载压缩包需要 H@H 客户端</string>
     <string name="settings_privacy">隐私</string>
     <string name="settings_privacy_secure">不允许屏幕抓取</string>
     <string name="settings_privacy_secure_summary">启用后，将不能截取该应用的屏幕截图，同时，将不会在系统任务切换器中显示该应用的内容预览\n\n重新启动应用以生效此更改</string>
@@ -841,6 +843,7 @@
     <string name="add_tag_dialog_title">添加标签</string>
     <string name="tag_title">标签栏</string>
     <string name="empty_subscription">订阅内容为空</string>
+    <string name="subscription_success">%s成功</string>
 
     <!-- 下载通知   -->
     <string name="download_torrent_name">种子: %s</string>
@@ -906,5 +909,25 @@
     <string name="loading_db_file">数据加载中 …</string>
     <string name="settings_eh_history_size">历史记录数量</string>
     <string name="history_info_unlimited">无限制</string>
+    <string name="archiver">档案</string>
+    <string name="archiver_dialog_current_funds">当前拥有:</string>
+    <string name="archiver_dialog_download_original">下载原始档案</string>
+    <string name="archiver_dialog_download_resample">下载压缩档案</string>
+    <string name="archiver_dialog_size">预计大小:  %s</string>
+    <string name="dialog_archiver_title">档案下载</string>
+    <string name="download_receiver_label">EhViewer 下载接收</string>
+    <string name="decompressed_successfully">解压成功！</string>
+    <string name="decompression_failed">解压失败！</string>
+    <string name="download_label_archiver">档案</string>
+    <string name="cookie_in_clipboard_incorrect">Cookie格式不正确</string>
+    <string name="settings_download_timeout">下载超时时间</string>
+    <string name="download_timeout_unlimited">无上限</string>
+    <string name="settings_download_timeout_summary">%s(S),下载一张图片的最大可用时长。</string>
+    <string name="have_new_version">点击查看新的画廊版本</string>
+    <string name="archiver_downloading">档案下载中 %s</string>
+    <string name="order">排序</string>
+    <string name="sort_by_pub_time">按上传时间</string>
+    <string name="sort_by_fav_time">按收藏时间</string>
+    <string name="settings_eh_sign_out_restart">正在为您自动重启，请稍候</string>
 
 </resources>

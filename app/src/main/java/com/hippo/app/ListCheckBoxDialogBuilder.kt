@@ -24,15 +24,16 @@ import android.widget.CheckBox
 import android.widget.ListView
 import androidx.appcompat.app.AlertDialog
 import com.hippo.ehviewer.R
-import com.hippo.yorozuya.ViewUtils
+import com.hippo.lib.yorozuya.ViewUtils
 
 class ListCheckBoxDialogBuilder @SuppressLint("InflateParams") constructor(
-    context: Context?, items: Array<CharSequence>,
+    context: Context?, items: Array<CharSequence>?,
     listener: OnItemClickListener?, checkText: String?, checked: Boolean
 ) : AlertDialog.Builder(
     context!!
 ) {
     private val mCheckBox: CheckBox
+
     private var mDialog: AlertDialog? = null
 
     init {
@@ -41,7 +42,7 @@ class ListCheckBoxDialogBuilder @SuppressLint("InflateParams") constructor(
         setView(view)
         val listView = ViewUtils.`$$`(view, R.id.list_view) as ListView
         mCheckBox = ViewUtils.`$$`(view, R.id.checkbox) as CheckBox
-        listView.adapter = ArrayAdapter(getContext(), R.layout.item_select_dialog, items)
+        listView.adapter = ArrayAdapter(getContext(), R.layout.item_select_dialog, items!!)
         listView.onItemClickListener =
             AdapterView.OnItemClickListener { parent, view, position, id ->
                 listener?.onItemClick(this@ListCheckBoxDialogBuilder, mDialog, position)
