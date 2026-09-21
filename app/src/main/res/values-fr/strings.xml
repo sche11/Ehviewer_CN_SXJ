@@ -406,6 +406,8 @@
     <string name="download_stop_all">Arrêter tout</string>
     <string name="download_reset_reading_progress">Réinitialiser les progrès de lecture</string>
     <string name="reset_reading_progress_message">Réinitialiser les progrès de lecture de toutes les galeries téléchargées ?</string>
+    <string name="reset_reading_progress_processing">Réinitialisation des progrès de lecture...</string>
+    <string name="reset_reading_progress_done">Progrès de lecture réinitialisés</string>
     <string name="download_service_label">Service du téléchargement EhViewer</string>
     <string name="archiver_download_service_label">Téléchargement d\'archives EhViewer</string>
     <string name="archiver_download_pause">Pause</string>

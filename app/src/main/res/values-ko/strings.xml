@@ -424,6 +424,8 @@
     <string name="download_search_gallery">갤러리 검색</string>
     <string name="download_search_hint">키워드 입력</string>
     <string name="reset_reading_progress_message">다운로드한 모든 갤러리의 독서 진행도를 초기화하시겠습니까?</string>
+    <string name="reset_reading_progress_processing">독서 진행도를 초기화하는 중...</string>
+    <string name="reset_reading_progress_done">독서 진행도가 초기화되었습니다</string>
     <string name="download_service_label">EhViewer 다운로드 서비스</string>
     <string name="archiver_download_service_label">EhViewer 아카이브 다운로드</string>
     <string name="archiver_download_pause">일시정지</string>

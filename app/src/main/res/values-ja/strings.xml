@@ -388,6 +388,8 @@
     <string name="download_search_gallery">ギャラリーを検索</string>
     <string name="download_search_hint">検索キーを入力</string>
     <string name="reset_reading_progress_message">すべてのダウンロード済みのギャラリーの閲覧進捗をリセットしますか？</string>
+    <string name="reset_reading_progress_processing">閲覧進捗をリセットしています...</string>
+    <string name="reset_reading_progress_done">閲覧進捗をリセットしました</string>
     <string name="download_service_label">EhViewer ダウンロードサービス</string>
     <string name="archiver_download_service_label">EhViewer アーカイブのダウンロード</string>
     <string name="archiver_download_pause">一時停止</string>

@@ -458,6 +458,8 @@
     <string name="download_search_gallery">搜尋畫廊</string>
     <string name="download_search_hint">輸入搜尋關鍵字</string>
     <string name="reset_reading_progress_message">重設所有已下載圖庫的閱讀進度？</string>
+    <string name="reset_reading_progress_processing">正在重設閱讀進度...</string>
+    <string name="reset_reading_progress_done">閱讀進度重設完畢</string>
     <string name="download_service_label">EhViewer 下載服務</string>
     <string name="archiver_download_service_label">EhViewer 檔案下載</string>
     <string name="archiver_download_pause">暫停</string>

@@ -384,6 +384,8 @@
     <string name="download_stop_all">全部停止</string>
     <string name="download_reset_reading_progress">重置閱讀進度</string>
     <string name="reset_reading_progress_message">重置所有已下載圖庫的閱讀進度？</string>
+    <string name="reset_reading_progress_processing">正在重置閱讀進度...</string>
+    <string name="reset_reading_progress_done">閱讀進度重置完畢</string>
     <string name="download_service_label">EhViewer 下載服務</string>
     <string name="archiver_download_service_label">EhViewer 檔案下載</string>
     <string name="archiver_download_pause">暫停</string>
