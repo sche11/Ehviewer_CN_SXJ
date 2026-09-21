@@ -775,7 +775,7 @@ public class DownloadsScene extends ToolbarScene
             }
             case R.id.action_reset_reading_progress: {
                 Context context = getEHContext();
-                if (context == null) {
+                    if (context == null) {
                     return false;
                 }
                 if (searching) {

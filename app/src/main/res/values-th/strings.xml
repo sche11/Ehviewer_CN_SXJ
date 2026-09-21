@@ -565,6 +565,12 @@
     <string name="settings_read_screen_rotation_default">ค่าเริ่มต้น</string>
     <string name="settings_read_screen_rotation_portrait">แนวตั้ง</string>
     <string name="settings_read_screen_rotation_landscape">แนวนอน</string>
+    <string name="settings_read_refresh_rate">อัตรารีเฟรช</string>
+    <string name="settings_read_refresh_rate_default">ค่าเริ่มต้น</string>
+    <string name="settings_read_refresh_rate_60">60 Hz</string>
+    <string name="settings_read_refresh_rate_90">90 Hz</string>
+    <string name="settings_read_refresh_rate_120">120 Hz</string>
+    <string name="settings_read_refresh_rate_max">สูงสุดของหน้าจอ</string>
     <string name="settings_read_reading_direction">ทิศทางการเปิดหน้าอ่าน</string>
     <string name="settings_read_reading_direction_left_to_right">ซ้าย -> ขวา</string>
     <string name="settings_read_reading_direction_right_to_Left">ขวา -> ซ้าย</string>

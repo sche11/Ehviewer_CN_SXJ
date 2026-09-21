@@ -474,6 +474,12 @@
     <string name="settings_read_screen_rotation_portrait">Hochformat</string>
     <string name="settings_read_screen_rotation_landscape">Querformat</string>
     <string name="settings_read_screen_rotation_sensor">Automatisch drehen</string>
+    <string name="settings_read_refresh_rate">Bildwiederholrate</string>
+    <string name="settings_read_refresh_rate_default">Standard</string>
+    <string name="settings_read_refresh_rate_60">60 Hz</string>
+    <string name="settings_read_refresh_rate_90">90 Hz</string>
+    <string name="settings_read_refresh_rate_120">120 Hz</string>
+    <string name="settings_read_refresh_rate_max">Maximum des Bildschirms</string>
     <string name="settings_read_reading_direction">Richtung des Lesens</string>
     <string name="settings_read_reading_direction_left_to_right">Von links nach rechts</string>
     <string name="settings_read_reading_direction_right_to_Left">Von rechts nach links</string>

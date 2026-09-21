@@ -576,6 +576,12 @@
     <string name="settings_read_screen_rotation_portrait">세로 모드</string>
     <string name="settings_read_screen_rotation_landscape">가로 모드</string>
     <string name="settings_read_screen_rotation_sensor">자동 회전</string>
+    <string name="settings_read_refresh_rate">주사율</string>
+    <string name="settings_read_refresh_rate_default">기본값</string>
+    <string name="settings_read_refresh_rate_60">60 Hz</string>
+    <string name="settings_read_refresh_rate_90">90 Hz</string>
+    <string name="settings_read_refresh_rate_120">120 Hz</string>
+    <string name="settings_read_refresh_rate_max">화면 최고</string>
     <string name="settings_read_reading_direction">읽기 방향</string>
     <string name="settings_read_reading_direction_left_to_right">왼쪽에서 오른쪽으로</string>
     <string name="settings_read_reading_direction_right_to_Left">오른쪽에서 왼쪽으로</string>

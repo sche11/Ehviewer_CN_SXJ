@@ -529,6 +529,12 @@
     <string name="settings_read_screen_rotation_portrait">縦画面</string>
     <string name="settings_read_screen_rotation_landscape">横画面</string>
     <string name="settings_read_screen_rotation_sensor">自動回転</string>
+    <string name="settings_read_refresh_rate">リフレッシュレート</string>
+    <string name="settings_read_refresh_rate_default">システムのデフォルト</string>
+    <string name="settings_read_refresh_rate_60">60 Hz</string>
+    <string name="settings_read_refresh_rate_90">90 Hz</string>
+    <string name="settings_read_refresh_rate_120">120 Hz</string>
+    <string name="settings_read_refresh_rate_max">画面の最高</string>
     <string name="settings_read_reading_direction">閲覧方向</string>
     <string name="settings_read_reading_direction_left_to_right">左から右へ</string>
     <string name="settings_read_reading_direction_right_to_Left">右から左へ</string>
